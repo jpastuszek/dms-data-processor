@@ -1,58 +1,51 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
 describe TagSpace do
-	subject do
-		TagSpace.new
-	end
+	describe '#[]' do
+		subject do
+			ts = TagSpace.new
+			ts['System:memory'] = 1
+			ts['java:memory'] = 2
+			ts['java:memory:heap:PermGenSpace'] = 3
+			ts['java:memory:heap:EdenSpace'] = 4
+			ts
+		end
 
-	it 'should store custom object under a tag and retrive it by tag pattern' do
-		subject['System:memory'] = :hello_world
+		it 'should provide values for single tag word pattern' do
+			subject['system'].sort.should == [1]
+			subject['Memory'].sort.should == [1, 2, 3, 4]
+			subject['java'].sort.should == [2, 3, 4]
+			subject['heap'].sort.should == [3, 4]
+			subject['permgenspace'].sort.should == [3]
+		end
 
-		subject['system'].should == [:hello_world]
-		subject['Memory'].should == [:hello_world]
-		subject['/sys/:/mem/'].should == [:hello_world]
+		it 'should provide values for multi level tag pattern' do
+			subject['java:memory:heap:PermGenSpace'].sort.should == [3]
+			subject['java:memory:heap:EdenSpace'].sort.should == [4]
 
-		subject['java:memory'] = 42
-		subject['Memory'].should include(:hello_world)
-		subject['Memory'].should include(42)
-		subject['java'].should == [42]
+			subject['memory:heap:PermGenSpace'].sort.should == [3]
+			subject['memory:heap:EdenSpace'].sort.should == [4]
 
-		subject['java:memory:heap:PermGenSpace'] = 'test'
+			subject['memory:heap'].sort.should == [3, 4]
+			subject['system:memory'].sort.should == [1]
+		end
+		
+		it 'should provide values for patterns including regexp' do
+			subject['/sys/:/mem/'].sort.should == [1]
+			subject['/mem/'].sort.should == [1, 2, 3, 4]
+			subject['java:/mem/'].sort.should == [2, 3, 4]
 
-		subject['java'].should include(42)
-		subject['java'].should include('test')
 
-		subject['/mem/'].should include(:hello_world)
-		subject['/mem/'].should include('test')
-		subject['/mem/'].should include(42)
+			subject['heap:/space/'].sort.should == [3, 4]
+			subject['//'].sort.should == [1, 2, 3, 4]
+		end
 
-		subject['/sys/:/mem/'].should include(:hello_world)
-		subject['/sys/:/mem/'].should_not include('test')
-		subject['/sys/:/mem/'].should_not include(42)
-
-		subject['java:/mem/'].should_not include(:hello_world)
-		subject['java:/mem/'].should include('test')
-		subject['java:/mem/'].should include(42)
-
-		subject['heap'].should_not include(:hello_world)
-		subject['heap'].should include('test')
-		subject['heap'].should_not include(42)
-
-		subject['heap:java'].should be_empty
-		subject['test'].should be_empty
-		subject[''].should be_empty
-
-		subject['java:memory:heap:EdenSpace'] = 'test2'
-
-		subject['heap:/space/'].should_not include(:hello_world)
-		subject['heap:/space/'].should include('test')
-		subject['heap:/space/'].should include('test2')
-		subject['heap:/space/'].should_not include(42)
-
-		subject['//'].should include(:hello_world)
-		subject['//'].should include('test')
-		subject['//'].should include('test2')
-		subject['//'].should include(42)
+		it 'should return empty array if there was no match' do
+			subject['heap:java'].should be_empty
+			subject['memory://:heap'].should be_empty
+			subject['test'].should be_empty
+			subject[''].should be_empty
+		end
 	end
 end
 

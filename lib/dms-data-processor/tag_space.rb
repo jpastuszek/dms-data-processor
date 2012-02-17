@@ -33,7 +33,7 @@ class TagSpace
 	end
 
 	def [](pattern)
-		fetch(pattern, @tags)
+		fetch(pattern, @tags).to_a
 	end
 
 	private
@@ -55,15 +55,14 @@ class TagSpace
 		end
 		return [] if nodes.empty?
 
-		values = []
+		values = Set.new
 
 		nodes.each do |node|
-			values += node.values.to_a
-			
-			values += if pattern.empty?
-				collect_tree(node)
+			if pattern.empty?
+				values += node.values.to_a
+				values += collect_tree(node)
 			else
-				fetch(pattern, node)
+				values += fetch(pattern, node)
 			end
 		end
 
@@ -87,7 +86,7 @@ class TagSpace
 	end
 
 	def collect_tree(root)
-		values = []
+		values = Set.new
 
 		root.branches.each_value do |node|
 			values += node.values.to_a
