@@ -11,6 +11,12 @@ describe TagSpace do
 		subject['Memory'].should == [:hello_world]
 		subject['system'].should == [:hello_world]
 		subject['/sys/:/mem/'].should == [:hello_world]
+
+		subject['java:memory'] = 42
+		subject['Memory'].should include(:hello_world)
+		subject['Memory'].should include(42)
+
+		#subject['java'].should == [42]
 	end
 end
 

@@ -1,13 +1,13 @@
 require 'set'
 
 class TagSpace
-	class TagComponent < String
+	class Component < String
 		def initialize(value)
 			super value.downcase
 		end
 	end
 
-	class TagSubValue
+	class ValueSet
 		def initialize
 			@components = Set.new
 			@values = Set.new
@@ -27,54 +27,49 @@ class TagSpace
 		begin
 			tag1, tag2 = *tag.take(2)
 
-			key = TagComponent.new(tag1)
+			key = Component.new(tag1)
 
-			sub_value = (@tags[key] ||= TagSubValue.new)
+			value_set = (@tags[key] ||= ValueSet.new)
 
 			if tag2
-				sub_value.components << TagComponent.new(tag2)
+				value_set.components << Component.new(tag2)
 			else
-				sub_value.values << value
+				value_set.values << value
 			end
 
 			tag.shift
 		end until tag.empty? 
+
 		self
 	end
 
 	def [](pattern)
-		p fetch(pattern.is_a?(TagPattern) ? pattern.dup : TagPattern.new(pattern))
-	end
-
-	private
-
-	def fetch(pattern)
-		set = Set.new
-		p @tags
-		puts "pattern: #{pattern}"
+		pattern = pattern.is_a?(TagPattern) ? pattern.dup : TagPattern.new(pattern)
+		out = Set.new
+		return out if pattern.empty?
 
 		pattern_component = pattern.shift
-		return set unless pattern_component
 
-		sub_value = if pattern_component.is_a? Regexp
+		value_set = if pattern_component.is_a? Regexp
 			@tags[@tags.keys.find{|key| key =~ pattern_component}]
 		else
-			@tags[TagComponent.new(pattern_component)]
+			@tags[Component.new(pattern_component)]
 		end
-		p sub_value
-		return set unless sub_value
+		return out unless value_set
 
-		set += sub_value.values
+		out += value_set.values
 		
 		if pattern.empty?
-			sub_value.components.each do |pattern|
-				set += fetch([pattern])
+			# no more patterns to match get whole sub tree
+			value_set.components.each do |tag_component|
+				out += self[TagPattern.new(tag_component)]
 			end
 		else
-			set += fetch(pattern)
+			# match next pattern
+			out += self[pattern]
 		end
 
-		set.to_a
+		out.to_a
 	end
 end
 
