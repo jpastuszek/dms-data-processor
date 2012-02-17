@@ -7,69 +7,94 @@ class TagSpace
 		end
 	end
 
-	class ValueSet
+	class Node
 		def initialize
-			@components = Set.new
+			@branches = {}
 			@values = Set.new
 		end
 
-		attr_reader :components
+		attr_reader :branches
 		attr_reader :values
 	end
 
 	def initialize
-		@tags = {}
+		@tags = Node.new
 	end
 
 	def []=(tag, value)
 		tag = tag.is_a?(Tag) ? tag.dup : Tag.new(tag)
 
 		begin
-			tag1, tag2 = *tag.take(2)
-
-			key = Component.new(tag1)
-
-			value_set = (@tags[key] ||= ValueSet.new)
-
-			if tag2
-				value_set.components << Component.new(tag2)
-			else
-				value_set.values << value
-			end
-
+			make_branch(tag, value, @tags)
 			tag.shift
-		end until tag.empty? 
+		end until tag.empty?
 
 		self
 	end
 
 	def [](pattern)
+		fetch(pattern, @tags)
+	end
+
+	private
+
+	def fetch(pattern, root)
 		pattern = pattern.is_a?(TagPattern) ? pattern.dup : TagPattern.new(pattern)
-		out = Set.new
-		return out if pattern.empty?
+		return [] if pattern.empty?
 
 		pattern_component = pattern.shift
 
-		value_set = if pattern_component.is_a? Regexp
-			@tags[@tags.keys.find{|key| key =~ pattern_component}]
-		else
-			@tags[Component.new(pattern_component)]
-		end
-		return out unless value_set
-
-		out += value_set.values
-		
-		if pattern.empty?
-			# no more patterns to match get whole sub tree
-			value_set.components.each do |tag_component|
-				out += self[TagPattern.new(tag_component)]
+		nodes = []
+		if pattern_component.is_a? Regexp
+			root.branches.keys.select{|key| key =~ pattern_component}.each do |key|
+				nodes << root.branches[key]
 			end
 		else
-			# match next pattern
-			out += self[pattern]
+			node = root.branches[Component.new(pattern_component)]
+			nodes << node if node
+		end
+		return [] if nodes.empty?
+
+		values = []
+
+		nodes.each do |node|
+			values += node.values.to_a
+			
+			values += if pattern.empty?
+				collect_tree(node)
+			else
+				fetch(pattern, node)
+			end
 		end
 
-		out.to_a
+		values
+	end
+
+	def make_branch(tag, value, root)
+		return root if tag.empty?
+
+		tag = tag.dup
+		key = Component.new(tag.shift)
+		node = (root.branches[key] ||= Node.new)
+
+		if tag.empty?
+			node.values << value
+		else
+			make_branch(tag, value, node)
+		end
+
+		root
+	end
+
+	def collect_tree(root)
+		values = []
+
+		root.branches.each_value do |node|
+			values += node.values.to_a
+			values += collect_tree(node)
+		end
+
+		values
 	end
 end
 
