@@ -2,13 +2,38 @@ class MemoryStorage
 	class Node < Hash
 	end
 
-	def initialize
-		@store = {}
+	class RingBuffer
+		include Enumerable
+
+		def initialize(size)
+			@buffer = []
+			@size = size
+			@next_pos = 0
+			@length = 0
+		end
+
+		def <<(o)
+			@buffer[@next_pos] = o
+			@next_pos += 1
+			@next_pos %= @size
+			@length += 1 if @length < @size
+		end
+
+		def each
+			@length.times do |time|
+				yield @buffer[(@next_pos - 1 - time) % @size]
+			end
+		end
 	end
 
-	def []=(location, path, component, value)
+	def initialize(size = 10000)
+		@store = {}
+		@size = size
+	end
+
+	def store(location, path, component, value)
 		node = make_nodes(path.split('/'))
-		(node[location] ||= {})[component] = value
+		((node[location] ||= {})[component] ||= RingBuffer.new(@size)) << value
 		self
 	end
 
