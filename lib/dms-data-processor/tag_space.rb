@@ -91,6 +91,7 @@ class TagSpace
 
 		nodes.each do |node|
 			if pattern.empty?
+				#TODO: use merge?
 				values += node.values.to_a
 				values += collect_tree(node)
 			else
