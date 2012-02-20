@@ -91,11 +91,10 @@ class TagSpace
 
 		nodes.each do |node|
 			if pattern.empty?
-				#TODO: use merge?
-				values += node.values.to_a
-				values += collect_tree(node)
+				values.merge(node.values)
+				values.merge(collect_tree(node))
 			else
-				values += fetch(pattern, node)
+				values.merge(fetch(pattern, node))
 			end
 		end
 
@@ -122,8 +121,8 @@ class TagSpace
 		values = Set.new
 
 		root.branches.each_value do |node|
-			values += node.values.to_a
-			values += collect_tree(node)
+			values.merge(node.values)
+			values.merge(collect_tree(node))
 		end
 
 		values
