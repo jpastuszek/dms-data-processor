@@ -15,9 +15,31 @@
 # You should have received a copy of the GNU General Public License
 # along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
 
-require 'dms-core'
-require 'dms-data-processor/tag_space'
-require 'dms-data-processor/memory_storage'
-require 'dms-data-processor/storage_controller'
-require 'dms-data-processor/data_builder'
+require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
+
+describe DataType do
+	it 'should take and provide name' do
+		DataType.new('CPU usage').name.should == 'CPU usage'
+	end
+
+	it 'should take block where unit can be defined' do
+		DataType.new('CPU usage').unit.should == nil
+
+		DataType.new('CPU usage') do
+			unit '%'
+		end.unit.should == '%'
+	end
+
+	it 'should take block where range can be defined (including Infinity)' do
+		DataType.new('CPU usage').range.should == (-Infinity...Infinity)
+
+		DataType.new('CPU usage') do
+			range 0...Infinity
+		end.range.should == (0...Infinity)
+
+		DataType.new('CPU usage') do
+			range -Infinity...100
+		end.range.should == (-Infinity...100)
+	end
+end
 

@@ -15,9 +15,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
 
-require 'dms-core'
-require 'dms-data-processor/tag_space'
-require 'dms-data-processor/memory_storage'
-require 'dms-data-processor/storage_controller'
-require 'dms-data-processor/data_builder'
+require 'dms-data-processor/data_type'
+
+class DataBuilder
+	def initialize(data_type, tag_space, storage_controller)
+		@data_type = data_type
+		@tag_space = tag_space
+		@storage_controller = storage_controller
+	end
+
+	attr_reader :data_type
+end
 

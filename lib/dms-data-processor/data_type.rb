@@ -15,9 +15,20 @@
 # You should have received a copy of the GNU General Public License
 # along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
 
-require 'dms-core'
-require 'dms-data-processor/tag_space'
-require 'dms-data-processor/memory_storage'
-require 'dms-data-processor/storage_controller'
-require 'dms-data-processor/data_builder'
+Infinity = 1.0 / 0 unless defined?(Infinity)
+
+class DataType
+	include DSL
+
+	def initialize(name, &block)
+		@name = name
+		dsl_variable :unit
+		dsl_variable :range, -Infinity...Infinity
+		dsl &block
+	end
+
+	attr_reader :name
+	attr_reader :range
+	attr_reader :unit
+end
 
