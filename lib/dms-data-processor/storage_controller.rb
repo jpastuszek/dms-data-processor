@@ -40,6 +40,10 @@ class StorageController
 	def store(location, path, component, value)
 		@storage.store(location, path, component, value)
 
+		find_callbacks(path.split('/'), @notify_value_tree).each do |callback|
+			callback[location, path, component, value]
+		end
+
 		find_callbacks(path.split('/'), @notify_components_tree).each do |callback|
 			tree = @storage[path]
 
@@ -51,10 +55,6 @@ class StorageController
 			end
 
 			callback[location, path, components]
-		end
-
-		find_callbacks(path.split('/'), @notify_value_tree).each do |callback|
-			callback[location, path, component, value]
 		end
 	end
 
