@@ -88,14 +88,12 @@ describe DataBuilder do
 		tag_space['system:CPU usage:CPU:1'].should be_empty
 		tag_space['system:CPU usage:CPU:0'].should be_empty
 
-		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'stolen', 3)
 		storage_controller.store('magi', 'system/CPU usage/cpu/1', 'user', 2)
 
 		tag_space['system:CPU usage'].should have(1).data_builder
 		tag_space['location:magi'].should have(1).data_builder
 		tag_space['system:CPU usage:CPU:1'].should have(1).data_builder
 
-		tag_space['virtual'].should be_empty
 		tag_space['location:nina'].should be_empty
 		tag_space['system:CPU usage:CPU:0'].should be_empty
 		tag_space['system:CPU usage:total'].should be_empty
@@ -103,10 +101,13 @@ describe DataBuilder do
 		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'system', 4)
 
 		tag_space['location:nina'].should have(1).data_builder
-		tag_space['virtual'].should have(1).data_builder
+		tag_space['virtual'].should be_empty
 		tag_space['system:CPU usage:CPU:0'].should have(1).data_builder
 
 		tag_space['system:CPU usage:total'].should be_empty
+
+		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'stolen', 3)
+		tag_space['virtual'].should have(1).data_builder
 
 		storage_controller.store('magi', 'system/CPU usage/total', 'user', 6)
 		storage_controller.store('magi', 'system/CPU usage/total', 'system', 7)
@@ -123,6 +124,9 @@ describe DataBuilder do
 		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'system', 1)
 
 		subject.tags.should == Set['location:nina', 'system:CPU usage:CPU:0', 'hello', 'world']
+
+		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'stolen', 1)
+		subject.tags.should == Set['location:nina', 'system:CPU usage:CPU:0', 'hello', 'world', 'virtual']
 	end
 end
 

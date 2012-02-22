@@ -37,8 +37,6 @@ class DataBuilder
 			@needed_components << name
 		end
 
-		@available_paths = Set.new
-
 		dsl_method :prefix do |prefix, &block|
 			log.debug "#{data_type.name}: uses raw data under prefix: #{prefix}"
 
@@ -49,10 +47,7 @@ class DataBuilder
 			end
 
 			@storage_controller.notify_components(prefix) do |location, path, stored_components|
-				next if @available_paths.include?([prefix, path])
-
 				if stored_components.superset?(@needed_components)
-					@available_paths << [prefix, path]
 					block.call(location, path, stored_components)
 					flush_tags
 				end
