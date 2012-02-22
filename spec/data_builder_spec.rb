@@ -45,7 +45,7 @@ describe DataBuilder do
 				tag "virtual" if components.include? 'stolen'
 			end
 
-			prefix 'system/CPU usage/cpu' do |location, path, components|
+			prefix 'system/CPU usage/CPU' do |location, path, components|
 				tag "system:CPU usage:CPU:#{path.split('/').last}"
 			end
 
@@ -80,15 +80,15 @@ describe DataBuilder do
 		Logging.logger.root.level = :debug
 		subject # initialize subject
 
-		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'user', 1)
-		storage_controller.store('magi', 'system/CPU usage/cpu/1', 'system', 2)
+		storage_controller.store('nina', 'system/CPU usage/CPU/0', 'user', 1)
+		storage_controller.store('magi', 'system/CPU usage/CPU/1', 'system', 2)
 
 		tag_space['CPU usage'].should be_empty
 		tag_space['location:magi'].should be_empty
 		tag_space['system:CPU usage:CPU:1'].should be_empty
 		tag_space['system:CPU usage:CPU:0'].should be_empty
 
-		storage_controller.store('magi', 'system/CPU usage/cpu/1', 'user', 2)
+		storage_controller.store('magi', 'system/CPU usage/CPU/1', 'user', 2)
 
 		tag_space['system:CPU usage'].should have(1).data_builder
 		tag_space['location:magi'].should have(1).data_builder
@@ -98,7 +98,7 @@ describe DataBuilder do
 		tag_space['system:CPU usage:CPU:0'].should be_empty
 		tag_space['system:CPU usage:total'].should be_empty
 
-		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'system', 4)
+		storage_controller.store('nina', 'system/CPU usage/CPU/0', 'system', 4)
 
 		tag_space['location:nina'].should have(1).data_builder
 		tag_space['virtual'].should be_empty
@@ -106,7 +106,7 @@ describe DataBuilder do
 
 		tag_space['system:CPU usage:total'].should be_empty
 
-		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'stolen', 3)
+		storage_controller.store('nina', 'system/CPU usage/CPU/0', 'stolen', 3)
 		tag_space['virtual'].should have(1).data_builder
 
 		storage_controller.store('magi', 'system/CPU usage/total', 'user', 6)
@@ -120,13 +120,38 @@ describe DataBuilder do
 		subject # initialize subject
 		subject.tags.should be_empty
 
-		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'user', 1)
-		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'system', 1)
+		storage_controller.store('nina', 'system/CPU usage/CPU/0', 'user', 1)
+		storage_controller.store('nina', 'system/CPU usage/CPU/0', 'system', 1)
 
 		subject.tags.should == Set['location:nina', 'system:CPU usage:CPU:0', 'hello', 'world']
 
-		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'stolen', 1)
+		storage_controller.store('nina', 'system/CPU usage/CPU/0', 'stolen', 1)
 		subject.tags.should == Set['location:nina', 'system:CPU usage:CPU:0', 'hello', 'world', 'virtual']
+	end
+
+	it 'should provide data' do
+		pending "need more tag stuf"
+		subject # initialize subject
+
+		20.time do |time|
+			datum = [Time.at(time), time * 10]
+			storage_controller.store('magi', 'system/CPU usage/CPU/0', 'user', dataum)
+			storage_controller.store('magi', 'system/CPU usage/CPU/0', 'system', datum)
+
+			storage_controller.store('nina', 'system/CPU usage/CPU/0', 'user', dataum)
+			storage_controller.store('nina', 'system/CPU usage/CPU/0', 'system', datum)
+			storage_controller.store('nina', 'system/CPU usage/CPU/0', 'stolen', datum)
+		end
+
+		data_builders = tag_space['hello']
+		data_builders.should have(1).data_builder
+
+		data_builder = data_builders.shift
+		data_sets = data_builder.data_sets('hello', Time.at(10)...Time.at(4))
+
+		data_sets = data_builder.data_sets('system:CPU usage:total', Time.at(10)...Time.at(4))
+
+		data_sets = data_builder.data_sets('system:CPU usage:CPU:1', Time.at(10)...Time.at(4))
 	end
 end
 
