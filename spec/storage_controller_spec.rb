@@ -25,21 +25,21 @@ describe StorageController do
 
 	it_behaves_like 'storage'
 
-	it 'should call a callback on storage of objects under matching prefix' do
+	it 'should notify on stored value under given prefix' do
 		notices = []
-		subject.notify('system') do |location, path, component, value|
+		subject.notify_value('system') do |location, path, component, value|
 			notices << [1, location, path, component, value]
 		end
 
-		subject.notify('system/CPU usage/cpu/0') do |location, path, component, value|
+		subject.notify_value('system/CPU usage/cpu/0') do |location, path, component, value|
 			notices << [2, location, path, component, value]
 		end
 
-		subject.notify('system/bogous') do |location, path, component, value|
+		subject.notify_value('system/bogous') do |location, path, component, value|
 			notices << [3, location, path, component, value]
 		end
 
-		subject.notify('jmx/tomcat') do |location, path, component, value|
+		subject.notify_value('jmx/tomcat') do |location, path, component, value|
 			notices << [4, location, path, component, value]
 		end
 
@@ -55,6 +55,56 @@ describe StorageController do
 		subject.store('nina', 'jmx/tomcat/test', 'idle', 123)
 		notices.should have(1).notices
 		notices.shift.should == [4, 'nina', 'jmx/tomcat/test', 'idle', 123]
+
+		subject.store('nina', 'jmx/tomc', 'idle', 123)
+		notices.should have(0).notices
+
+		subject.store('nina', 'tomcat', 'idle', 123)
+		notices.should have(0).notices
+
+		subject.store('nina', 'jmx', 'idle', 123)
+		notices.should have(0).notices
+	end
+
+	it 'should notify when new component is stored under given path prefix' do
+		notices = []
+		subject.notify_components('system') do |location, path, components|
+			notices << [1, location, path, components]
+		end
+
+		subject.notify_components('system/CPU usage/cpu/0') do |location, path, components|
+			notices << [2, location, path, components]
+		end
+
+		subject.notify_components('system/bogous') do |location, path, components|
+			notices << [3, location, path, components]
+		end
+
+		subject.notify_components('jmx/tomcat') do |location, path, components|
+			notices << [4, location, path, components]
+		end
+
+		subject.store('magi', 'system/CPU usage/cpu/0', 'usage', 213)
+		notices.should have(2).notices
+		notices.shift.should == [1, 'magi', 'system/CPU usage/cpu/0', Set['usage']]
+		notices.shift.should == [2, 'magi', 'system/CPU usage/cpu/0', Set['usage']]
+
+		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 213)
+		notices.should have(2).notices
+		notices.shift.should == [1, 'magi', 'system/CPU usage/cpu/0', Set['usage', 'idle']]
+		notices.shift.should == [2, 'magi', 'system/CPU usage/cpu/0', Set['usage', 'idle']]
+
+		subject.store('nina', 'system/CPU usage/cpu/1', 'idle', 123)
+		notices.should have(1).notices
+		notices.shift.should == [1, 'nina', 'system/CPU usage/cpu/1', Set['idle']]
+
+		subject.store('nina', 'system/CPU usage/cpu/1', 'usage', 123)
+		notices.should have(1).notices
+		notices.shift.should == [1, 'nina', 'system/CPU usage/cpu/1', Set['idle', 'usage']]
+
+		subject.store('nina', 'jmx/tomcat/test', 'idle', 123)
+		notices.should have(1).notices
+		notices.shift.should == [4, 'nina', 'jmx/tomcat/test', Set['idle']]
 
 		subject.store('nina', 'jmx/tomc', 'idle', 123)
 		notices.should have(0).notices

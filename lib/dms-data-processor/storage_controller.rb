@@ -33,13 +33,27 @@ class StorageController
 
 	def initialize(storage)
 		@storage = storage
-		@notify_tree = {}
+		@notify_value_tree = {}
+		@notify_components_tree = {}
 	end
 
 	def store(location, path, component, value)
 		@storage.store(location, path, component, value)
 
-		find_callbacks(path.split('/')).each do |callback|
+		find_callbacks(path.split('/'), @notify_components_tree).each do |callback|
+			tree = @storage[path]
+
+			components = Set.new
+			tree.each_value do |location_node|
+				location_node.each_value do |component_node|
+					components.merge(component_node.keys)
+				end
+			end
+
+			callback[location, path, components]
+		end
+
+		find_callbacks(path.split('/'), @notify_value_tree).each do |callback|
 			callback[location, path, component, value]
 		end
 	end
@@ -48,13 +62,17 @@ class StorageController
 		@storage[prefix]
 	end
 
-	def notify(prefix, &callback)
-		make_nodes(prefix.split('/')) << callback
+	def notify_value(prefix, &callback)
+		make_nodes(prefix.split('/'), @notify_value_tree) << callback
+	end
+
+	def notify_components(prefix, &callback)
+		make_nodes(prefix.split('/'), @notify_components_tree) << callback
 	end
 
 	private
 
-	def find_callbacks(path_elements, root = @notify_tree)
+	def find_callbacks(path_elements, root)
 		callbacks = Set.new
 		return callbacks if path_elements.empty?
 
@@ -67,7 +85,7 @@ class StorageController
 		callbacks
 	end
 
-	def make_nodes(path_elements, root = @notify_tree)
+	def make_nodes(path_elements, root)
 		return root if path_elements.empty?
 		make_nodes(path_elements, root[path_elements.shift] ||= Node.new)
 	end
