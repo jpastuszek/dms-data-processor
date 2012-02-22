@@ -37,8 +37,8 @@ describe DataBuilder do
 			component 'system'
 
 			# registered when all non-optional components for single matching prefix are available
-			tag 'system:CPU usage'
-			tag 'hello world'
+			tag 'hello'
+			tag 'world'
 
 			prefix 'system/CPU usage' do |location, path, components|
 				tag "location:#{location}"
@@ -80,7 +80,7 @@ describe DataBuilder do
 		Logging.logger.root.level = :debug
 		subject # initialize subject
 
-		storage_controller.store('magi', 'system/CPU usage/cpu/0', 'user', 1)
+		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'user', 1)
 		storage_controller.store('magi', 'system/CPU usage/cpu/1', 'system', 2)
 
 		tag_space['CPU usage'].should be_empty
@@ -88,7 +88,7 @@ describe DataBuilder do
 		tag_space['system:CPU usage:CPU:1'].should be_empty
 		tag_space['system:CPU usage:CPU:0'].should be_empty
 
-		storage_controller.store('magi', 'system/CPU usage/cpu/0', 'stolen', 3)
+		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'stolen', 3)
 		storage_controller.store('magi', 'system/CPU usage/cpu/1', 'user', 2)
 
 		tag_space['system:CPU usage'].should have(1).data_builder
@@ -96,13 +96,15 @@ describe DataBuilder do
 		tag_space['system:CPU usage:CPU:1'].should have(1).data_builder
 
 		tag_space['virtual'].should be_empty
+		tag_space['location:nina'].should be_empty
 		tag_space['system:CPU usage:CPU:0'].should be_empty
 		tag_space['system:CPU usage:total'].should be_empty
 
-		storage_controller.store('magi', 'system/CPU usage/cpu/0', 'system', 4)
+		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'system', 4)
 
-		tag_space['system:CPU usage:CPU:0'].should have(1).data_builder
+		tag_space['location:nina'].should have(1).data_builder
 		tag_space['virtual'].should have(1).data_builder
+		tag_space['system:CPU usage:CPU:0'].should have(1).data_builder
 
 		tag_space['system:CPU usage:total'].should be_empty
 
@@ -111,6 +113,16 @@ describe DataBuilder do
 
 		tag_space['system:CPU usage:total'].should have(1).data_builder
 		tag_space['CPU usage'].should have(1).data_builder
+	end
+
+	it 'should provide list of supported tags' do
+		subject # initialize subject
+		subject.tags.should be_empty
+
+		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'user', 1)
+		storage_controller.store('nina', 'system/CPU usage/cpu/0', 'system', 1)
+
+		subject.tags.should == Set['location:nina', 'system:CPU usage:CPU:0', 'hello', 'world']
 	end
 end
 
