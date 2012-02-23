@@ -135,6 +135,9 @@ describe StorageController do
 		notices.shift.should == [1, 'magi', 'system/CPU usage/cpu/0', Set['usage', 'idle']]
 		notices.shift.should == [2, 'magi', 'system/CPU usage/cpu/0', Set['usage', 'idle']]
 
+		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 213)
+		notices.should have(0).notices
+
 		subject.store('nina', 'system/CPU usage/cpu/1', 'idle', 123)
 		notices.should have(1).notices
 		notices.shift.should == [1, 'nina', 'system/CPU usage/cpu/1', Set['idle']]

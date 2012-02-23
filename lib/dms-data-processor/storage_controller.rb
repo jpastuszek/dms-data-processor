@@ -75,28 +75,36 @@ class StorageController
 	end
 
 	def store(location, path, component, value)
+		new_component = ! @storage.fetch(path, {}).fetch(location, {}).has_key?(component)
+
 		@storage.store(location, path, component, value)
 
 		find_callbacks(path.split('/'), @notify_value_tree).each do |callback|
 			callback[location, path, component, value]
 		end
 
-		find_callbacks(path.split('/'), @notify_components_tree).each do |callback|
-			tree = @storage[path]
+		if new_component
+			find_callbacks(path.split('/'), @notify_components_tree).each do |callback|
+				tree = @storage[path]
 
-			components = Set.new
-			tree.each_value do |location_node|
-				location_node.each_value do |component_node|
-					components.merge(component_node.keys)
+				components = Set.new
+				tree.each_value do |location_node|
+					location_node.each_value do |component_node|
+						components.merge(component_node.keys)
+					end
 				end
-			end
 
-			callback[location, path, components]
+				callback[location, path, components]
+			end
 		end
 	end
 
 	def [](prefix)
 		@storage[prefix]
+	end
+
+	def fetch(path, default = :magick, &block)
+		@storage.fetch(path, default, &block)
 	end
 
 	def notify_value(prefix, &callback)

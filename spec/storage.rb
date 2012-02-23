@@ -51,5 +51,20 @@ shared_examples_for 'storage' do
 		system = subject['system']
 		system['system/CPU usage/cpu/0']['magi']['idle'].to_a.should == [3, 2, 1]
 	end
+
+	it 'should have fetch method that finds path literally and behaves like Hash#fetch' do
+		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 1)
+		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 2)
+		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 3)
+		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 4)
+
+
+		expect {
+			subject.fetch('system/CPU usage/cpu').should be_nil
+		}.to raise_error(KeyError, 'key not found')
+		subject.fetch('system/CPU usage/cpu', nil).should be_nil
+
+		subject.fetch('system/CPU usage/cpu/0').should_not be_nil
+	end
 end
 

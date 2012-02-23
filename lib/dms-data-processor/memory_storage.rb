@@ -19,6 +19,9 @@ class MemoryStorage
 	class Node < Hash
 	end
 
+	class Leaf < Node
+	end
+
 	class RingBuffer
 		include Enumerable
 
@@ -58,6 +61,22 @@ class MemoryStorage
 		find_node(prefix.split('/'))
 	end
 
+	def fetch(path, default = :magick, &block)
+		path = path.split('/')
+		root = @store
+
+		until path.empty?
+			root = root[path.shift]
+			break unless root
+		end
+
+		return root if root.is_a? Leaf
+
+		return default unless default == :magick
+		return block.call(path) if block
+		raise KeyError, 'key not found'
+	end
+
 	private
 
 	def find_node(path_elements, root = @store, path = [])
@@ -86,7 +105,9 @@ class MemoryStorage
 
 	def make_nodes(path_elements, root = @store)
 		return root if path_elements.empty?
-		make_nodes(path_elements, root[path_elements.shift] ||= Node.new)
+
+		node = path_elements.length > 1 ? Node.new : Leaf.new
+		make_nodes(path_elements, root[path_elements.shift] ||= node)
 	end
 end
 
