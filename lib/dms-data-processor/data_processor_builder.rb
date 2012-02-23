@@ -19,6 +19,32 @@ require 'dms-data-processor/data_type'
 require 'set'
 
 class DataProcessor
+	def initialize(id, raw_data_key_set, tag_set, &block)
+		@id = id
+		@raw_data_key_set = raw_data_key_set
+		@tag_set = tag_set
+		@processor = block
+	end
+
+	attr_reader :id
+	attr_reader :tag_set
+
+	def data_set(time_from, time_to, storage)
+		@processor.call(time_from, time_to, @raw_data_key_set.map do |raw_data_key|
+			storage.fetch(raw_data_key)
+		end)
+	end
+
+	def hash
+		@id
+	end
+
+	def to_s
+		"DataProcessor[#{@id}]<#{@tag_set.to_a.sort.map{|t| t.to_s}.join(', ')}>{#{@raw_data_key_set.to_a.map{|k| k.to_s}.sort.join(', ')}}"
+	end
+end
+
+class DataProcessorGroup
 	class KeyDSL
 		include DSL
 		def initialize(&block)
@@ -69,7 +95,6 @@ class DataProcessor
 		@processor = nil
 
 		@groups = {}
-		@tag_set = Set[]
 	end
 
 	def select(&block)
@@ -110,6 +135,16 @@ class DataProcessor
 	attr_reader :name
 	attr_accessor :processor
 
+	class Group
+		def initialize
+			@raw_data_key_set = Set[]
+			@tag_set = Set[]
+		end
+
+		attr_reader :raw_data_key_set
+		attr_reader :tag_set
+	end
+
 	def key(raw_data_key)
 		@select_key_pattern_set.any? do |raw_data_key_pattern|
 			raw_data_key.match? raw_data_key_pattern
@@ -120,28 +155,44 @@ class DataProcessor
 		@grouppers.each do |groupper|
 			group = groupper.call(raw_data_key)
 			next if group.empty?
-			(@groups[group] ||= Set[]) << raw_data_key
+			(@groups[group] ||= Group.new).raw_data_key_set << raw_data_key
 		end
 
-		@groups.each_pair do |group, raw_data_key_set|
+		@groups.each_pair do |group_id, group|
 			@needed_keys_pattern_set.all? do |raw_data_key_pattern|
-				raw_data_key_set.any? do |raw_data_key|
+				group.raw_data_key_set.any? do |raw_data_key|
 					raw_data_key.match? raw_data_key_pattern
 				end
 			end or next
 
-			log.info "#{@builder_name}/#{@name}: has a complete group: #{group}"
+			log.info "#{@builder_name}/#{@name}: has a complete group: #{group_id}"
 
 			new_tags = Set[]
 			@group_taggers.each do |group_tagger|
-				new_tags.merge(group_tagger.call(group, raw_data_key_set))
+				new_tags.merge(group_tagger.call(group_id, group.raw_data_key_set))
 			end
-			new_tags -= @tag_set 
+			new_tags -= group.tag_set 
+
 			unless new_tags.empty?
-				log.info "#{@builder_name}/#{@name}: has new tags: #{new_tags.map{|t| t.to_s}}"
-				@tag_set.merge(new_tags)
+				log.info "#{@builder_name}/#{@name}: group #{group_id} has new tags: #{new_tags.map{|t| t.to_s}}"
+				group.tag_set.merge(new_tags)
+
+				updated_group(group_id, group)
 			end
 		end
+	end
+
+	def each(&block)
+		@data_processor_collector = block
+	end
+
+	private
+
+	def updated_group(group_id, group)
+		dp_id = [builder_name, name, group_id].flatten.join(':')
+		dp = DataProcessor.new(dp_id, group.raw_data_key_set, group.tag_set, &@processor)
+		log.info "#{@builder_name}/#{@name}: created new data processor: #{dp}"
+		@data_processor_collector.call(dp) if @data_processor_collector
 	end
 end
 
@@ -162,21 +213,19 @@ class DataProcessorBuilder
 			@processors[name] = block
 		end
 
-		@data_processors = []
+		@data_processor_groups = []
 		dsl_method :data_processor do |name|
-			dp = DataProcessor.new(@name, name)
-			@data_processors << dp
-			dp
+			dpg = DataProcessorGroup.new(@name, name)
+			@data_processor_groups << dpg
+			dpg
 		end
-
-		@data_processor_sink = nil
 
 		dsl &block
 
 		# link named processors
-		@data_processors.each do |data_processor|
-			processor = data_processor.processor
-			data_processor.processor = @processors.fetch(processor) if not processor.is_a? Proc
+		@data_processor_groups.each do |data_processor_group|
+			processor = data_processor_group.processor
+			data_processor_group.processor = @processors.fetch(processor) if not processor.is_a? Proc
 		end
 	end
 
@@ -184,12 +233,14 @@ class DataProcessorBuilder
 	attr_reader :data_type
 
 	def each(&block)
-		@data_processor_sink = block
+		@data_processor_groups.each do |data_processor_group|
+			data_processor_group.each(&block)
+		end
 	end
 
 	def key(raw_data_key)
-		@data_processors.each do |data_processor|
-			data_processor.key(raw_data_key)
+		@data_processor_groups.each do |data_processor_group|
+			data_processor_group.key(raw_data_key)
 		end
 	end
 end
