@@ -75,25 +75,19 @@ end
 
 class RawDataKeyPattern
 	def initialize(string)
-		@location, @prefix_components = string.split(':', 2)
-		if not @prefix_components
-			@prefix_components = @location 
-			@location = nil
+		@location, @prefix_components = string.match(/(.*(?=:))?:?(.*)/).captures
+
+		if @location
+			if @location.empty?
+				@location = nil
+			elsif @location[0] == '/' and @location[-1] == '/' 
+				@location = Regexp.new(@location.slice(1...-1), Regexp::EXTENDED | Regexp::IGNORECASE)
+			end
 		end
 
-		@location = nil if @location and @location.empty?
-
-		if @location and @location[0] == '/' and @location[-1] == '/' 
-			@location = Regexp.new(@location.slice(1...-1), Regexp::EXTENDED | Regexp::IGNORECASE)
-		end
-
-		if @prefix_components
-			@prefix, @components = *@prefix_components.match(/([^\[]*)\[?([^\]]*)\]?$/).captures
-			@prefix = nil if @prefix.empty?
-			@components = Set.new(@components.split(/, */))
-		else
-			@components = Set[]
-		end
+		@prefix, @components = @prefix_components.match(/([^\[]*)\[?([^\]]*)\]?$/).captures
+		@prefix = nil if @prefix.empty?
+		@components = Set.new(@components.split(/, */))
 
 		@prefix.extend(RawDataKey::Path)
 	end
