@@ -44,6 +44,50 @@ class RawDataKey
 	end
 end
 
+class RawDataKeyPattern
+	def initialize(string)
+		@location, @prefix = string.split(':', 2)
+		if not @prefix
+			@prefix = @location 
+			@location = nil
+		end
+
+		@location = nil if @location and @location.empty?
+
+		if @location and @location[0] == '/' and @location[-1] == '/' 
+			@location = Regexp.new(@location.slice(1...-1), Regexp::EXTENDED | Regexp::IGNORECASE)
+		end
+
+		@prefix, @components = *@prefix.scan(/([^\[]+)\[?([^\]]*)\]?$/).first
+		@components = @components.split(/, */)
+
+		@prefix.extend(RawDataKey::Path)
+	end
+
+	attr_reader :location
+	attr_reader :prefix
+	attr_reader :components
+
+	def to_s
+		a = []
+
+		if @location
+			if @location.is_a? Regexp
+				a << @location.inspect.scan(/\/.*\//)
+			else
+				a << @location
+			end
+		end
+
+		b = []
+		b << @prefix if @prefix
+		b << '[' + @components.join(', ') + ']' unless @components.empty?
+
+		a << b.join
+		a.join(':')
+	end
+end
+
 class RawDatum
 	def self.[](time_stamp, value)
 		self.new(time_stamp, value)

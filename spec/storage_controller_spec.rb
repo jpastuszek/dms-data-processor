@@ -44,6 +44,60 @@ describe RawDataKey do
 	end
 end
 
+describe RawDataKeyPattern do
+	subject do
+		[
+			RawDataKeyPattern.new('system/CPU usage/total[user]'),
+			RawDataKeyPattern.new('system/CPU usage/total[user, system, stolen]'),
+			RawDataKeyPattern.new('system/CPU usage/total'),
+			RawDataKeyPattern.new('magi:system/CPU usage/total'),
+			RawDataKeyPattern.new('/magi/:system/CPU usage/total'),
+			RawDataKeyPattern.new(':system/CPU usage/total[]'),
+		]
+	end
+
+	it 'should pares out location, prefix and component list from string' do
+		rdkp = subject.shift
+		rdkp.location.should be_nil
+		rdkp.prefix.should == 'system/CPU usage/total'
+		rdkp.components.should == ['user']
+
+		rdkp = subject.shift
+		rdkp.location.should be_nil
+		rdkp.prefix.should == 'system/CPU usage/total'
+		rdkp.components.should == ['user', 'system', 'stolen']
+
+		rdkp = subject.shift
+		rdkp.location.should be_nil
+		rdkp.prefix.should == 'system/CPU usage/total'
+		rdkp.components.should == []
+
+		rdkp = subject.shift
+		rdkp.location.should == 'magi'
+		rdkp.prefix.should == 'system/CPU usage/total'
+		rdkp.components.should == []
+
+		rdkp = subject.shift
+		rdkp.location.should == /magi/ix
+		rdkp.prefix.should == 'system/CPU usage/total'
+		rdkp.components.should == []
+
+		rdkp = subject.shift
+		rdkp.location.should be_nil
+		rdkp.prefix.should == 'system/CPU usage/total'
+		rdkp.components.should == []
+	end
+
+	it 'should parse from string and render back to string' do
+		subject.shift.to_s.should == 'system/CPU usage/total[user]'
+		subject.shift.to_s.should == 'system/CPU usage/total[user, system, stolen]'
+		subject.shift.to_s.should == 'system/CPU usage/total'
+		subject.shift.to_s.should == 'magi:system/CPU usage/total'
+		subject.shift.to_s.should == '/magi/:system/CPU usage/total'
+		subject.shift.to_s.should == 'system/CPU usage/total'
+	end
+end
+
 describe RawDatum do
 	it 'cosists of UTC time stamp and value' do
 		rd = RawDatum.new(123, 42)
