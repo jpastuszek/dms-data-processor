@@ -18,6 +18,47 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 require 'storage'
 
+describe RawDataKey do
+	it 'consists of location, path and component' do
+		rdk = RawDataKey.new('magi', 'hello/world', 'usage')
+		rdk.location.should == 'magi'
+		rdk.path.should == 'hello/world'
+		rdk.component.should == 'usage'
+	end
+
+	it 'has short hand constructor' do
+		rdk = RawDataKey['magi', 'hello/world', 'usage']
+		rdk.location.should == 'magi'
+		rdk.path.should == 'hello/world'
+		rdk.component.should == 'usage'
+	end
+
+	describe 'path' do
+		it 'allows access to its components like array' do
+			rdk = RawDataKey['magi', 'hello/world', 'usage']
+			rdk.path.first.should == 'hello'
+			rdk.path.last.should == 'world'
+
+			rdk.path.to_a.should == ['hello', 'world']
+		end
+	end
+end
+
+describe RawDatum do
+	it 'cosists of UTC time stamp and value' do
+		rd = RawDatum.new(123, 42)
+		rd.time_stamp.should == Time.at(123).utc
+		rd.value.should == 42
+	end
+
+	it 'has short hand constructor' do
+		rd = RawDatum[Time.at(0), 9]
+		rd.time_stamp.should == Time.at(0).utc
+		rd.value.should == 9
+	end
+end
+
+
 describe StorageController do
 	subject do
 		StorageController.new(MemoryStorage.new(100))

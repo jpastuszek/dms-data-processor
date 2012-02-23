@@ -17,6 +17,43 @@
 
 require 'set'
 
+class RawDataKey
+	module Path
+		def method_missing(name, *args, &block)
+			self.split('/').send(name, *args, &block)
+		end
+	end
+
+	def self.[](location, path, component)
+		self.new(location, path, component)
+	end
+
+	def initialize(location, path, component)
+		@location = location
+		@path = path.dup
+		@path.extend Path
+		@component = component
+	end
+
+	attr_reader :location
+	attr_reader :path
+	attr_reader :component
+end
+
+class RawDatum
+	def self.[](time_stamp, value)
+		self.new(time_stamp, value)
+	end
+
+	def initialize(time_stamp, value)
+		@time_stamp = DataType.to_time(time_stamp)
+		@value = value
+	end
+
+	attr_reader :time_stamp
+	attr_reader :value
+end
+
 class StorageController
 	class Node < Hash
 		def initialize
