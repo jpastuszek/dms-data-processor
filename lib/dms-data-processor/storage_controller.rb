@@ -38,6 +38,10 @@ class RawDataKey
 	attr_reader :location
 	attr_reader :path
 	attr_reader :component
+
+	def ==(rdk)
+		@location == rdk.location and @path == rdk.path and @component == rdk.component
+	end
 end
 
 class RawDatum
@@ -74,18 +78,18 @@ class StorageController
 		@notify_components_tree = {}
 	end
 
-	def store(location, path, component, value)
-		new_component = ! @storage.fetch(path, {}).fetch(location, {}).has_key?(component)
+	def store(raw_data_key, raw_datum)
+		new_component = ! @storage.fetch(raw_data_key.path, {}).fetch(raw_data_key.location, {}).has_key?(raw_data_key.component)
 
-		@storage.store(location, path, component, value)
+		@storage.store(raw_data_key, raw_datum)
 
-		find_callbacks(path.split('/'), @notify_value_tree).each do |callback|
-			callback[location, path, component, value]
+		find_callbacks(raw_data_key.path.to_a, @notify_value_tree).each do |callback|
+			callback[raw_data_key, raw_datum]
 		end
 
 		if new_component
-			find_callbacks(path.split('/'), @notify_components_tree).each do |callback|
-				tree = @storage[path]
+			find_callbacks(raw_data_key.path.to_a, @notify_components_tree).each do |callback|
+				tree = @storage[raw_data_key.path]
 
 				components = Set.new
 				tree.each_value do |location_node|
@@ -94,7 +98,8 @@ class StorageController
 					end
 				end
 
-				callback[location, path, components]
+				# TODO: do I still need it like that?
+				callback[raw_data_key.location, raw_data_key.path, components]
 			end
 		end
 	end
@@ -108,15 +113,20 @@ class StorageController
 	end
 
 	def notify_value(prefix, &callback)
-		make_nodes(prefix.split('/'), @notify_value_tree) << callback
+		prefix = prefix.dup
+		prefix.extend(RawDataKey::Path)
+		make_nodes(prefix.to_a, @notify_value_tree) << callback
 	end
 
 	def notify_components(prefix, &callback)
-		make_nodes(prefix.split('/'), @notify_components_tree) << callback
+		prefix = prefix.dup
+		prefix.extend(RawDataKey::Path)
+		make_nodes(prefix.to_a, @notify_components_tree) << callback
 	end
 
 	private
 
+	# TODO: move to own class
 	def find_callbacks(path_elements, root)
 		callbacks = Set.new
 		return callbacks if path_elements.empty?

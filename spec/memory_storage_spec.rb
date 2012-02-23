@@ -26,10 +26,10 @@ describe MemoryStorage do
 	it_behaves_like 'storage'
 
 	it 'should not store more than specified number of objects under same key but keep the most recen objects' do
-		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 1)
-		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 2)
-		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 3)
-		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 4)
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 1)
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 2)
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 3)
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 4)
 
 		system = subject['system']
 		system['system/CPU usage/cpu/0']['magi']['idle'].to_a.should == [4, 3, 2]

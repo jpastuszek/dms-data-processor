@@ -68,42 +68,42 @@ describe StorageController do
 
 	it 'should notify on stored value under given prefix' do
 		notices = []
-		subject.notify_value('system') do |location, path, component, value|
-			notices << [1, location, path, component, value]
+		subject.notify_value('system') do |raw_data_key, raw_datum|
+			notices << [1, raw_data_key, raw_datum]
 		end
 
-		subject.notify_value('system/CPU usage/cpu/0') do |location, path, component, value|
-			notices << [2, location, path, component, value]
+		subject.notify_value('system/CPU usage/cpu/0') do |raw_data_key, raw_datum|
+			notices << [2, raw_data_key, raw_datum]
 		end
 
-		subject.notify_value('system/bogous') do |location, path, component, value|
-			notices << [3, location, path, component, value]
+		subject.notify_value('system/bogous') do |raw_data_key, raw_datum|
+			notices << [3, raw_data_key, raw_datum]
 		end
 
-		subject.notify_value('jmx/tomcat') do |location, path, component, value|
-			notices << [4, location, path, component, value]
+		subject.notify_value('jmx/tomcat') do |raw_data_key, raw_datum|
+			notices << [4, raw_data_key, raw_datum]
 		end
 
-		subject.store('magi', 'system/CPU usage/cpu/0', 'usage', 213)
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213)
 		notices.should have(2).notices
-		notices.shift.should == [1, 'magi', 'system/CPU usage/cpu/0', 'usage', 213]
-		notices.shift.should == [2, 'magi', 'system/CPU usage/cpu/0', 'usage', 213]
+		notices.shift.should == [1, RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213]
+		notices.shift.should == [2, RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213]
 
-		subject.store('nina', 'system/CPU usage/cpu/1', 'idle', 123)
+		subject.store(RawDataKey['nina', 'system/CPU usage/cpu/1', 'idle'], 123)
 		notices.should have(1).notices
-		notices.shift.should == [1, 'nina', 'system/CPU usage/cpu/1', 'idle', 123]
+		notices.shift.should == [1, RawDataKey['nina', 'system/CPU usage/cpu/1', 'idle'], 123]
 
-		subject.store('nina', 'jmx/tomcat/test', 'idle', 123)
+		subject.store(RawDataKey['nina', 'jmx/tomcat/test', 'idle'], 123)
 		notices.should have(1).notices
-		notices.shift.should == [4, 'nina', 'jmx/tomcat/test', 'idle', 123]
+		notices.shift.should == [4, RawDataKey['nina', 'jmx/tomcat/test', 'idle'], 123]
 
-		subject.store('nina', 'jmx/tomc', 'idle', 123)
+		subject.store(RawDataKey['nina', 'jmx/tomc', 'idle'], 123)
 		notices.should have(0).notices
 
-		subject.store('nina', 'tomcat', 'idle', 123)
+		subject.store(RawDataKey['nina', 'tomcat', 'idle'], 123)
 		notices.should have(0).notices
 
-		subject.store('nina', 'jmx', 'idle', 123)
+		subject.store(RawDataKey['nina', 'jmx', 'idle'], 123)
 		notices.should have(0).notices
 	end
 
@@ -125,38 +125,38 @@ describe StorageController do
 			notices << [4, location, path, components]
 		end
 
-		subject.store('magi', 'system/CPU usage/cpu/0', 'usage', 213)
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213)
 		notices.should have(2).notices
 		notices.shift.should == [1, 'magi', 'system/CPU usage/cpu/0', Set['usage']]
 		notices.shift.should == [2, 'magi', 'system/CPU usage/cpu/0', Set['usage']]
 
-		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 213)
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 213)
 		notices.should have(2).notices
 		notices.shift.should == [1, 'magi', 'system/CPU usage/cpu/0', Set['usage', 'idle']]
 		notices.shift.should == [2, 'magi', 'system/CPU usage/cpu/0', Set['usage', 'idle']]
 
-		subject.store('magi', 'system/CPU usage/cpu/0', 'idle', 213)
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 213)
 		notices.should have(0).notices
 
-		subject.store('nina', 'system/CPU usage/cpu/1', 'idle', 123)
+		subject.store(RawDataKey['nina', 'system/CPU usage/cpu/1', 'idle'], 123)
 		notices.should have(1).notices
 		notices.shift.should == [1, 'nina', 'system/CPU usage/cpu/1', Set['idle']]
 
-		subject.store('nina', 'system/CPU usage/cpu/1', 'usage', 123)
+		subject.store(RawDataKey['nina', 'system/CPU usage/cpu/1', 'usage'], 123)
 		notices.should have(1).notices
 		notices.shift.should == [1, 'nina', 'system/CPU usage/cpu/1', Set['idle', 'usage']]
 
-		subject.store('nina', 'jmx/tomcat/test', 'idle', 123)
+		subject.store(RawDataKey['nina', 'jmx/tomcat/test', 'idle'], 123)
 		notices.should have(1).notices
 		notices.shift.should == [4, 'nina', 'jmx/tomcat/test', Set['idle']]
 
-		subject.store('nina', 'jmx/tomc', 'idle', 123)
+		subject.store(RawDataKey['nina', 'jmx/tomc', 'idle'], 123)
 		notices.should have(0).notices
 
-		subject.store('nina', 'tomcat', 'idle', 123)
+		subject.store(RawDataKey['nina', 'tomcat', 'idle'], 123)
 		notices.should have(0).notices
 
-		subject.store('nina', 'jmx', 'idle', 123)
+		subject.store(RawDataKey['nina', 'jmx', 'idle'], 123)
 		notices.should have(0).notices
 	end
 end

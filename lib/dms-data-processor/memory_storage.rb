@@ -51,18 +51,22 @@ class MemoryStorage
 		@size = size
 	end
 
-	def store(location, path, component, value)
-		node = make_nodes(path.split('/'))
-		((node[location] ||= {})[component] ||= RingBuffer.new(@size)) << value
+	def store(raw_data_key, raw_datum)
+		node = make_nodes(raw_data_key.path.to_a)
+		((node[raw_data_key.location] ||= {})[raw_data_key.component] ||= RingBuffer.new(@size)) << raw_datum
 		self
 	end
 
 	def [](prefix)
-		find_node(prefix.split('/'))
+		prefix = prefix.dup
+		prefix.extend(RawDataKey::Path)
+		find_node(prefix.to_a)
 	end
 
 	def fetch(path, default = :magick, &block)
-		path = path.split('/')
+		path = path.dup
+		path.extend(RawDataKey::Path)
+		path = path.to_a
 		root = @store
 
 		until path.empty?
