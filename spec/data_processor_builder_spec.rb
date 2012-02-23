@@ -34,7 +34,8 @@ describe DataProcessorBuilder do
 				by raw_data_key.location
 				by raw_data_key.path.last
 			end.need do
-				key 'system/CPU usage/CPU[user, system]'
+				key 'system/CPU usage/CPU[user]'
+				key 'system/CPU usage/CPU[system]'
 			end.each_group do |group, raw_data_keys|
 				tag "location:#{group.first}"
 				tag "system:CPU usage:CPU:#{group.last}"
@@ -49,7 +50,8 @@ describe DataProcessorBuilder do
 			end.group do |raw_data_key|
 				by raw_data_key.location
 			end.need do
-				key 'system/CPU usage/CPU[user, system]'
+				key 'system/CPU usage/CPU[user]'
+				key 'system/CPU usage/CPU[system]'
 			end.each_group do |group, raw_data_keys|
 				tag "location:#{group.first}"
 				tag "system:CPU usage:CPU:total"

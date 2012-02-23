@@ -46,9 +46,9 @@ class DataProcessor
 	class TagDSL
 		include DSL
 		def initialize(group, raw_data_key, &block)
-			@tag_set = TagSet.new
+			@tag_set = Set[]
 			dsl_method :tag do |tag|
-				@tag_set << value.to_s
+				@tag_set << Tag.new(tag)
 			end
 			dsl group, raw_data_key, &block
 		end
@@ -61,16 +61,19 @@ class DataProcessor
 		@builder_name = builder_name
 		@name = name
 
-		@select_key_set = Set[]
+		@select_key_pattern_set = Set[]
 		@grouppers = []
-		@needed_keys_set = Set[]
+		@needed_keys_pattern_set = Set[]
 		@group_taggers = []
 
 		@processor = nil
+
+		@groups = {}
+		@tag_set = Set[]
 	end
 
 	def select(&block)
-		@select_key_set.merge(KeyDSL.new(&block).key_set)
+		@select_key_pattern_set.merge(KeyDSL.new(&block).key_set)
 		self
 	end
 
@@ -82,7 +85,7 @@ class DataProcessor
 	end
 
 	def need(&block)
-		@needed_keys_set.merge(KeyDSL.new(&block).key_set)
+		@needed_keys_pattern_set.merge(KeyDSL.new(&block).key_set)
 		self
 	end
 
@@ -108,7 +111,37 @@ class DataProcessor
 	attr_accessor :processor
 
 	def key(raw_data_key)
+		@select_key_pattern_set.any? do |raw_data_key_pattern|
+			raw_data_key.match? raw_data_key_pattern
+		end or return
+
 		log.info "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
+
+		@grouppers.each do |groupper|
+			group = groupper.call(raw_data_key)
+			next if group.empty?
+			(@groups[group] ||= Set[]) << raw_data_key
+		end
+
+		@groups.each_pair do |group, raw_data_key_set|
+			@needed_keys_pattern_set.all? do |raw_data_key_pattern|
+				raw_data_key_set.any? do |raw_data_key|
+					raw_data_key.match? raw_data_key_pattern
+				end
+			end or next
+
+			log.info "#{@builder_name}/#{@name}: has a complete group: #{group}"
+
+			new_tags = Set[]
+			@group_taggers.each do |group_tagger|
+				new_tags.merge(group_tagger.call(group, raw_data_key_set))
+			end
+			new_tags -= @tag_set 
+			unless new_tags.empty?
+				log.info "#{@builder_name}/#{@name}: has new tags: #{new_tags.map{|t| t.to_s}}"
+				@tag_set.merge(new_tags)
+			end
+		end
 	end
 end
 
