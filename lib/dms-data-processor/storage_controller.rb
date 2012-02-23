@@ -87,8 +87,13 @@ class RawDataKeyPattern
 			@location = Regexp.new(@location.slice(1...-1), Regexp::EXTENDED | Regexp::IGNORECASE)
 		end
 
-		@prefix, @components = *@prefix.scan(/([^\[]+)\[?([^\]]*)\]?$/).first
-		@components = @components.split(/, */)
+		if @prefix
+			@prefix, @components = *@prefix.scan(/([^\[]*)\[?([^\]]*)\]?$/).first
+			@prefix = nil if @prefix.empty?
+			@components = Set.new(@components.split(/, */))
+		else
+			@components = Set[]
+		end
 
 		@prefix.extend(RawDataKey::Path)
 	end
@@ -110,7 +115,7 @@ class RawDataKeyPattern
 
 		b = []
 		b << @prefix if @prefix
-		b << '[' + @components.join(', ') + ']' unless @components.empty?
+		b << '[' + @components.to_a.join(', ') + ']' unless @components.empty?
 
 		a << b.join
 		a.join(':')

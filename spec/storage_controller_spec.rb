@@ -55,6 +55,7 @@ describe RawDataKey do
 			subject.should be_match RawDataKeyPattern.new('magi:system/CPU usage/total')
 			subject.should be_match RawDataKeyPattern.new('/magi/:system/CPU usage/total')
 			subject.should be_match RawDataKeyPattern.new(':system/CPU usage/total[]')
+			subject.should be_match RawDataKeyPattern.new('')
 
 			subject.should_not be_match RawDataKeyPattern.new('system/CPU usage/cpu/1')
 			subject.should_not be_match RawDataKeyPattern.new('nina:system/CPU usage/total')
@@ -69,9 +70,13 @@ describe RawDataKeyPattern do
 		[
 			RawDataKeyPattern.new('system/CPU usage/total[user]'),
 			RawDataKeyPattern.new('system/CPU usage/total[user, system, stolen]'),
+			RawDataKeyPattern.new('system/CPU usage/total[user, system, system]'),
 			RawDataKeyPattern.new('system/CPU usage/total'),
+			RawDataKeyPattern.new(''),
 			RawDataKeyPattern.new('magi:system/CPU usage/total'),
 			RawDataKeyPattern.new('/magi/:system/CPU usage/total'),
+			RawDataKeyPattern.new('magi:system/CPU usage/total[user, system, stolen]'),
+			RawDataKeyPattern.new('magi:[user, system, stolen]'),
 			RawDataKeyPattern.new(':system/CPU usage/total[]'),
 		]
 	end
@@ -80,40 +85,64 @@ describe RawDataKeyPattern do
 		rdkp = subject.shift
 		rdkp.location.should be_nil
 		rdkp.prefix.should == 'system/CPU usage/total'
-		rdkp.components.should == ['user']
+		rdkp.components.should == Set['user']
 
 		rdkp = subject.shift
 		rdkp.location.should be_nil
 		rdkp.prefix.should == 'system/CPU usage/total'
-		rdkp.components.should == ['user', 'system', 'stolen']
+		rdkp.components.should == Set['user', 'system', 'stolen']
 
 		rdkp = subject.shift
 		rdkp.location.should be_nil
 		rdkp.prefix.should == 'system/CPU usage/total'
-		rdkp.components.should == []
+		rdkp.components.should == Set['user', 'system']
+
+		rdkp = subject.shift
+		rdkp.location.should be_nil
+		rdkp.prefix.should == 'system/CPU usage/total'
+		rdkp.components.should be_empty
+
+		rdkp = subject.shift
+		rdkp.location.should be_nil
+		rdkp.prefix.should be_nil
+		rdkp.components.should be_empty
 
 		rdkp = subject.shift
 		rdkp.location.should == 'magi'
 		rdkp.prefix.should == 'system/CPU usage/total'
-		rdkp.components.should == []
+		rdkp.components.should be_empty
 
 		rdkp = subject.shift
 		rdkp.location.should == /magi/ix
 		rdkp.prefix.should == 'system/CPU usage/total'
-		rdkp.components.should == []
+		rdkp.components.should be_empty
+
+		rdkp = subject.shift
+		rdkp.location.should == 'magi'
+		rdkp.prefix.should == 'system/CPU usage/total'
+		rdkp.components.should == Set['user', 'system', 'stolen']
+
+		rdkp = subject.shift
+		rdkp.location.should == 'magi'
+		rdkp.prefix.should be_nil
+		rdkp.components.should == Set['user', 'system', 'stolen']
 
 		rdkp = subject.shift
 		rdkp.location.should be_nil
 		rdkp.prefix.should == 'system/CPU usage/total'
-		rdkp.components.should == []
+		rdkp.components.should be_empty
 	end
 
 	it 'should parse from string and render back to string' do
 		subject.shift.to_s.should == 'system/CPU usage/total[user]'
 		subject.shift.to_s.should == 'system/CPU usage/total[user, system, stolen]'
+		subject.shift.to_s.should == 'system/CPU usage/total[user, system]'
 		subject.shift.to_s.should == 'system/CPU usage/total'
+		subject.shift.to_s.should == ''
 		subject.shift.to_s.should == 'magi:system/CPU usage/total'
 		subject.shift.to_s.should == '/magi/:system/CPU usage/total'
+		subject.shift.to_s.should == 'magi:system/CPU usage/total[user, system, stolen]'
+		subject.shift.to_s.should == 'magi:[user, system, stolen]'
 		subject.shift.to_s.should == 'system/CPU usage/total'
 	end
 end
