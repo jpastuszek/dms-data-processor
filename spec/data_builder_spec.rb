@@ -33,50 +33,84 @@ describe DataBuilder do
 
 	subject do
 		DataBuilder.new(data_type, tag_space, storage_controller) do
-			component 'user'
-			component 'system'
-
-			# registered when all non-optional components for single matching prefix are available
 			tag 'hello'
 			tag 'world'
 
-			prefix 'system/CPU usage' do |location, path, components|
-				tag "location:#{location}"
-				tag "virtual" if components.include? 'stolen'
+			data_set(:cpu_time_delta) do
+				needs ':system/CPU usage/CPU[user, system]'
+
+				on do |location, path, components|
+					tag "location:#{location}"
+					tag "virtual" if components.include? 'stolen'
+					tag "system:CPU usage:CPU:#{path.split('/').last}"
+				end
 			end
 
-			prefix 'system/CPU usage/CPU' do |location, path, components|
-				tag "system:CPU usage:CPU:#{path.split('/').last}"
+			data_set(:cpu_time_delta) do
+				needs 'system/CPU usage/total', 'user', 'system'
+
+				on do |location, path, components|
+					tag "location:#{location}"
+					tag "system:CPU usage:total"
+				end
 			end
 
-			prefix 'system/CPU usage/total' do |location, path, components|
-				tag "system:CPU usage:total"
+			data_sets(:cpu_spread) do
+				select do |location, path, components|
+					path.match('system/CPU usage/CPU/*') and components.superset?('usage', 'system')
+				end.group_by do |location, path, components|
+					group path.split('/').last
+					group location
+				end.tag do |group|
+					tag "location:#{location}"
+					tag "system:CPU usage:CPU:#{group}"
+				end
+
+				map
+				
+				map ':system/CPU usage/total[user, system, stolen]'
+
+				on do |keys|
+					keys.each do |key|
+						tag "location:#{key.location}"
+					end
+					tag "system:virtualization:CPU cost"
+				end
 			end
-			
-			data do |time_from, time_to, components|
-				components.each_pair do |name, raw_data|
-					rd = raw_data.range(time_from, time_to)
 
-					old = nil
-					rd.each do |new|
-						if old
-							time_delta = (new.time - old.time).to_f
-							value_delta = (new.value - old.value).to_f / 1000
+			processor(:cpu_time_delta) do |time_from, time_to, data_sources|
+				data_sources.each_pair do |path, location_node|
+					location_node.each_pair do |location, component_node|
+						component_node do |component, raw_data|
+							rd = raw_data.range(time_from, time_to)
 
-							collect name, new.time - (time_delta / 2),  value_delta / time_delta
+							old = nil
+							rd.each do |new|
+								if old
+									time_delta = (new.time - old.time).to_f
+									value_delta = (new.value - old.value).to_f / 1000
+
+									collect name, new.time - (time_delta / 2),  value_delta / time_delta
+								end
+								old = new
+							end
 						end
-						old = new
 					end
 				end
+			end
+
+			processor(:cpu_spread) do |time_from, time_to, data_sources|
 			end
 		end
 	end
 
 	it 'should have data type' do
+		pending "need new concept"
 		subject.data_type.name.should == 'CPU usage'
 	end
 
 	it 'should not cause tags to be defined untill all required components of given path are stored' do
+		pending "need new concept"
 		Logging.logger.root.level = :debug
 		subject # initialize subject
 
@@ -117,6 +151,7 @@ describe DataBuilder do
 	end
 
 	it 'should provide list of supported tags' do
+		pending "need new concept"
 		subject # initialize subject
 		subject.tags.should be_empty
 
@@ -129,7 +164,7 @@ describe DataBuilder do
 		subject.tags.should == Set['location:nina', 'system:CPU usage:CPU:0', 'hello', 'world', 'virtual']
 	end
 
-	it 'should provide data' do
+	it 'should provide data sets' do
 		pending "need more tag stuf"
 		subject # initialize subject
 
