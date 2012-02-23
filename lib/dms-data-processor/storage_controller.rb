@@ -75,7 +75,7 @@ class StorageController
 	def initialize(storage)
 		@storage = storage
 		@notify_value_tree = {}
-		@notify_components_tree = {}
+		@notify_raw_data_key = {}
 	end
 
 	def store(raw_data_key, raw_datum)
@@ -88,19 +88,8 @@ class StorageController
 		end
 
 		if new_component
-			find_callbacks(raw_data_key.path.to_a, @notify_components_tree).each do |callback|
-				tree = @storage[raw_data_key.path]
-
-				components = Set.new
-				tree.each_value do |location_node|
-					location_node.each_value do |component_node|
-						components.merge(component_node.keys)
-					end
-				end
-
-				# TODO: it should be per location!
-				# TODO: do I still need it like that?
-				callback[raw_data_key.location, raw_data_key.path, components]
+			find_callbacks(raw_data_key.path.to_a, @notify_raw_data_key).each do |callback|
+				callback[raw_data_key]
 			end
 		end
 	end
@@ -119,10 +108,10 @@ class StorageController
 		make_nodes(prefix.to_a, @notify_value_tree) << callback
 	end
 
-	def notify_components(prefix, &callback)
+	def notify_raw_data_key(prefix, &callback)
 		prefix = prefix.dup
 		prefix.extend(RawDataKey::Path)
-		make_nodes(prefix.to_a, @notify_components_tree) << callback
+		make_nodes(prefix.to_a, @notify_raw_data_key) << callback
 	end
 
 	private
