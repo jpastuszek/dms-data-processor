@@ -99,13 +99,12 @@ describe DataProcessorBuilder do
 		end
 	end
 
-	it 'should have data type' do
-		pending "need new concept"
+	it 'should have builder name, name and data type' do
+		subject.name.should == :system_cpu_usage
 		subject.data_type.name.should == 'CPU usage'
 	end
 
 	it 'should not cause tags to be defined untill all required components of given path are stored' do
-		pending "need new concept"
 		Logging.logger.root.level = :debug
 
 		data_processors = []

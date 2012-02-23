@@ -71,6 +71,10 @@ class RawDataKey
 
 		true
 	end
+
+	def to_s
+		"RawDataKey[#{@location}:#{@path}/#{@component}]"
+	end
 end
 
 class RawDataKeyPattern

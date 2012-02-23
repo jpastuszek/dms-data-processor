@@ -18,66 +18,146 @@
 require 'dms-data-processor/data_type'
 require 'set'
 
+class DataProcessor
+	class KeyDSL
+		include DSL
+		def initialize(&block)
+			@key_set = Set.new
+			dsl_method :key do |key|
+				@key_set << RawDataKeyPattern.new(key)
+			end
+			dsl &block
+		end
+		attr_reader :key_set
+	end
+
+	class GroupDSL
+		include DSL
+		def initialize(raw_data_key, &block)
+			@group = []
+			dsl_method :by do |value|
+				@group << value.to_s
+			end
+			dsl raw_data_key, &block
+		end
+		attr_reader :group
+	end
+
+	class TagDSL
+		include DSL
+		def initialize(group, raw_data_key, &block)
+			@tag_set = TagSet.new
+			dsl_method :tag do |tag|
+				@tag_set << value.to_s
+			end
+			dsl group, raw_data_key, &block
+		end
+		attr_reader :tag_set
+	end
+
+	include DSL
+
+	def initialize(builder_name, name)
+		@builder_name = builder_name
+		@name = name
+
+		@select_key_set = Set[]
+		@grouppers = []
+		@needed_keys_set = Set[]
+		@group_taggers = []
+
+		@processor = nil
+	end
+
+	def select(&block)
+		@select_key_set.merge(KeyDSL.new(&block).key_set)
+		self
+	end
+
+	def group(&block)
+		@grouppers << lambda { |raw_data_key|
+			GroupDSL.new(raw_data_key, &block).group
+		}
+		self
+	end
+
+	def need(&block)
+		@needed_keys_set.merge(KeyDSL.new(&block).key_set)
+		self
+	end
+
+	def each_group(&block)
+		@group_taggers << lambda { |group, raw_data_key|
+			TagDSL.new(group, raw_data_key, &block).tag_set
+		}
+		self
+	end
+
+	def process_with(processor_name = nil, &block)
+		if block
+			@processor = block
+		else
+			# to be replaced by DataProcessorBuilder
+			@processor = processor_name
+		end
+		self
+	end
+
+	attr_reader :builder_name
+	attr_reader :name
+	attr_accessor :processor
+
+	def key(raw_data_key)
+		log.info "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
+	end
+end
+
 class DataProcessorBuilder
 	include DSL
 
-	def initialize(data_type, tag_space, storage_controller, &block)
+	def initialize(name, data_type, &block)
+		@name = name
 		@data_type = data_type
-		@tag_space = tag_space
-		@storage_controller = storage_controller
 
 		@tags = Set.new
-		@new_tags = Set.new
 		dsl_method :tag do |tag|
-			@new_tags << tag
+			@tags << tag
 		end
 
-		@needed_components = Set.new
-		dsl_method :component do |name|
-			@needed_components << name
+		@processors = {}
+		dsl_method :processor do |name, &block|
+			@processors[name] = block
 		end
 
-		dsl_method :prefix do |prefix, &block|
-			log.debug "#{data_type.name}: uses raw data under prefix: #{prefix}"
-
-			if log.debug? 
-				@storage_controller.notify_value(prefix) do |location, path, component, value|
-					log.debug "[#{prefix}]#{path[prefix.length..-1]}: stored '#{component}': #{value}"
-				end
-			end
-
-			@storage_controller.notify_components(prefix) do |location, path, stored_components|
-				if stored_components.superset?(@needed_components)
-					block.call(location, path, stored_components)
-					flush_tags
-				end
-			end
+		@data_processors = []
+		dsl_method :data_processor do |name|
+			dp = DataProcessor.new(@name, name)
+			@data_processors << dp
+			dp
 		end
 
-		dsl_method :data do
+		@data_processor_sink = nil
+
+		dsl &block
+
+		# link named processors
+		@data_processors.each do |data_processor|
+			processor = data_processor.processor
+			data_processor.processor = @processors.fetch(processor) if not processor.is_a? Proc
 		end
-
-		dsl(&block)
-
-		log.debug "#{data_type.name}: needs components: #{@needed_components.to_a} to produce data"
 	end
 
+	attr_reader :name
 	attr_reader :data_type
-	attr_reader :tags
 
-	private
+	def each(&block)
+		@data_processor_sink = block
+	end
 
-	def flush_tags
-		tags = @new_tags - @tags
-		return if tags.empty?
-
-		log.info "'#{data_type.name}' data set is available under new tags: #{tags.to_a.sort.join(', ')}"
-		tags.each do |tag|
-			@tag_space[tag] = self
+	def key(raw_data_key)
+		@data_processors.each do |data_processor|
+			data_processor.key(raw_data_key)
 		end
-
-		@tags.merge(tags)
-		@new_tags.clear
 	end
 end
 
