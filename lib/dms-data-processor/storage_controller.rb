@@ -75,9 +75,9 @@ end
 
 class RawDataKeyPattern
 	def initialize(string)
-		@location, @prefix = string.split(':', 2)
-		if not @prefix
-			@prefix = @location 
+		@location, @prefix_components = string.split(':', 2)
+		if not @prefix_components
+			@prefix_components = @location 
 			@location = nil
 		end
 
@@ -87,8 +87,8 @@ class RawDataKeyPattern
 			@location = Regexp.new(@location.slice(1...-1), Regexp::EXTENDED | Regexp::IGNORECASE)
 		end
 
-		if @prefix
-			@prefix, @components = *@prefix.scan(/([^\[]*)\[?([^\]]*)\]?$/).first
+		if @prefix_components
+			@prefix, @components = *@prefix_components.match(/([^\[]*)\[?([^\]]*)\]?$/).captures
 			@prefix = nil if @prefix.empty?
 			@components = Set.new(@components.split(/, */))
 		else
