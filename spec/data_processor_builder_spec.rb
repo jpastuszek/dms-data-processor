@@ -54,7 +54,7 @@ describe DataProcessorBuilder do
 				key 'system/CPU usage/total[system]'
 			end.each_group do |group, raw_data_keys|
 				tag "location:#{group.first}"
-				tag "system:CPU usage:CPU:total"
+				tag "system:CPU usage:total"
 
 				tag "virtual" if raw_data_keys.any? do |raw_data_key|
 					raw_data_key.component == 'stolen'
@@ -102,7 +102,7 @@ describe DataProcessorBuilder do
 		subject.data_type.name.should == 'CPU usage'
 	end
 
-	it 'should not cause tags to be defined untill all required components of given path are stored' do
+	it 'should provide new data processors on when new raw data keys are available' do
 		Logging.logger.root.level = :debug
 
 		data_processors = []
@@ -133,6 +133,39 @@ describe DataProcessorBuilder do
 		subject.key RawDataKey['magi', 'system/CPU usage/total', 'system']
 		data_processors.should have(1).data_processors
 		data_processors.shift.id.should == 'system_cpu_usage:total:magi'
+	end
+
+	it 'provided data processor should have proper tags assigned' do
+		Logging.logger.root.level = :debug
+
+		data_processors = []
+		subject.each do |data_processor|
+			data_processors << data_processor
+		end
+
+		subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']
+		subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']
+		data_processors.should have(2).data_processors
+		data_processors.first.should be_a(DataProcessor)
+		data_processors.shift.tag_set.should == Set[Tag.new('location:nina'), Tag.new('system:CPU count')]
+		data_processors.shift.tag_set.should == Set[Tag.new('location:magi'), Tag.new('system:CPU count')]
+
+		subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']
+		data_processors.should have(1).data_processors
+		data_processors.shift.tag_set.should == Set[Tag.new('location:magi'), Tag.new('system:CPU usage:CPU:1')]
+
+		subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']
+		data_processors.should have(1).data_processors
+		data_processors.shift.tag_set.should == Set[Tag.new('location:nina'), Tag.new('system:CPU usage:CPU:0')]
+
+		subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']
+		data_processors.should have(1).data_processors
+		data_processors.shift.tag_set.should == Set[Tag.new('location:nina'), Tag.new('system:CPU usage:CPU:0'), Tag.new('virtual')]
+
+		subject.key RawDataKey['magi', 'system/CPU usage/total', 'user']
+		subject.key RawDataKey['magi', 'system/CPU usage/total', 'system']
+		data_processors.should have(1).data_processors
+		data_processors.shift.tag_set.should == Set[Tag.new('location:magi'), Tag.new('system:CPU usage:total')]
 	end
 end
 
