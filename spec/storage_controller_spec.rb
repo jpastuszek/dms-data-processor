@@ -42,6 +42,26 @@ describe RawDataKey do
 			rdk.path.to_a.should == ['hello', 'world']
 		end
 	end
+
+	describe 'match RawDataKeyPattern' do
+		subject do
+			RawDataKey['magi', 'system/CPU usage/total', 'user']
+		end
+
+		it 'matchs by prefix' do
+			subject.should be_match RawDataKeyPattern.new('system/CPU usage[user]')
+			subject.should be_match RawDataKeyPattern.new('system/CPU usage[user, system, stolen]')
+			subject.should be_match RawDataKeyPattern.new('system/CPU usage')
+			subject.should be_match RawDataKeyPattern.new('magi:system/CPU usage/total')
+			subject.should be_match RawDataKeyPattern.new('/magi/:system/CPU usage/total')
+			subject.should be_match RawDataKeyPattern.new(':system/CPU usage/total[]')
+
+			subject.should_not be_match RawDataKeyPattern.new('system/CPU usage/cpu/1')
+			subject.should_not be_match RawDataKeyPattern.new('nina:system/CPU usage/total')
+			subject.should_not be_match RawDataKeyPattern.new('system/CPU usage/total[stolen]')
+			subject.should_not be_match RawDataKeyPattern.new('/magi1/:system/CPU usage/total')
+		end
+	end
 end
 
 describe RawDataKeyPattern do

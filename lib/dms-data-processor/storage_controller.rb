@@ -42,6 +42,35 @@ class RawDataKey
 	def ==(rdk)
 		@location == rdk.location and @path == rdk.path and @component == rdk.component
 	end
+
+  def match?(value)
+    pattern = if value.is_a?(RawDataKeyPattern)
+      value
+    else
+      RawDataKeyPattern.new(value)
+    end
+
+		if pattern.location
+			if pattern.location.is_a? Regexp
+				return false unless @location =~ pattern.location
+			else
+				return false unless @location == pattern.location
+			end
+		end
+
+		if pattern.prefix
+			@path.to_a.zip(pattern.prefix.to_a).each do |path_element, prefix_element|
+				break unless prefix_element
+				return false if path_element != prefix_element
+			end
+		end
+
+		unless pattern.components.empty?
+			return false unless pattern.components.include?(@component)
+		end
+
+		true
+	end
 end
 
 class RawDataKeyPattern
@@ -85,6 +114,10 @@ class RawDataKeyPattern
 
 		a << b.join
 		a.join(':')
+	end
+
+	def inspect
+		"#<RawDataKeyPattern @location=#{@location.inspect}, @prefix=#{@prefix.inspect}, @components=#{@components.inspect}>"
 	end
 end
 
