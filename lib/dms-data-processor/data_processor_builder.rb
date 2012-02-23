@@ -18,7 +18,7 @@
 require 'dms-data-processor/data_type'
 require 'set'
 
-class DataBuilder
+class DataProcessorBuilder
 	include DSL
 
 	def initialize(data_type, tag_space, storage_controller, &block)

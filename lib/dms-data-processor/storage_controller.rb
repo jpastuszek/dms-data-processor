@@ -98,6 +98,7 @@ class StorageController
 					end
 				end
 
+				# TODO: it should be per location!
 				# TODO: do I still need it like that?
 				callback[raw_data_key.location, raw_data_key.path, components]
 			end

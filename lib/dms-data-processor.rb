@@ -19,5 +19,5 @@ require 'dms-core'
 require 'dms-data-processor/tag_space'
 require 'dms-data-processor/memory_storage'
 require 'dms-data-processor/storage_controller'
-require 'dms-data-processor/data_builder'
+require 'dms-data-processor/data_processor_builder'
 
