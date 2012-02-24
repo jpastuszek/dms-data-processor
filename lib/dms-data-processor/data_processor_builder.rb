@@ -60,13 +60,13 @@ class DataProcessorGroup
 	class GroupDSL
 		include DSL
 		def initialize(raw_data_key, &block)
-			@group = []
+			@group_id = GroupID.new
 			dsl_method :by do |value|
-				@group << value.to_s
+				@group_id << value.to_s
 			end
 			dsl raw_data_key, &block
 		end
-		attr_reader :group
+		attr_reader :group_id
 	end
 
 	class TagDSL
@@ -105,7 +105,7 @@ class DataProcessorGroup
 
 	def group(&block)
 		@grouppers << lambda { |raw_data_key|
-			GroupDSL.new(raw_data_key, &block).group
+			GroupDSL.new(raw_data_key, &block).group_id
 		}
 		self
 	end
@@ -139,11 +139,17 @@ class DataProcessorGroup
 	class Group
 		def initialize
 			@raw_data_key_set = Set[]
-			@tag_set = Set[]
+			@tag_set = TagSet[]
 		end
 
 		attr_reader :raw_data_key_set
 		attr_reader :tag_set
+	end
+
+	class GroupID < Array
+		def to_s
+			"<#{map{|e| e.to_s}.join(':')}>"
+		end
 	end
 
 	def key(raw_data_key)
@@ -154,9 +160,9 @@ class DataProcessorGroup
 		log.info "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
 
 		@grouppers.each do |groupper|
-			group = groupper.call(raw_data_key)
-			next if group.empty?
-			(@groups[group] ||= Group.new).raw_data_key_set << raw_data_key
+			group_id = groupper.call(raw_data_key)
+			next if group_id.empty?
+			(@groups[group_id] ||= Group.new).raw_data_key_set << raw_data_key
 		end
 
 		@groups.each_pair do |group_id, group|
@@ -168,7 +174,7 @@ class DataProcessorGroup
 
 			log.info "#{@builder_name}/#{@name}: has a complete group: #{group_id}"
 
-			new_tags = Set[]
+			new_tags = TagSet[]
 			@group_taggers.each do |group_tagger|
 				new_tags.merge(group_tagger.call(group_id, group.raw_data_key_set))
 			end
@@ -177,10 +183,10 @@ class DataProcessorGroup
 			new_tags -= group.tag_set 
 
 			unless new_tags.empty?
-				log.info "#{@builder_name}/#{@name}: group #{group_id} has new tags: #{new_tags.map{|t| t.to_s}}"
+				log.info "#{@builder_name}/#{@name}: group #{group_id} has new tags: #{new_tags}"
 				group.tag_set.merge(new_tags)
 
-				updated_group(group_id, group)
+				make_data_processor(group_id, group)
 			end
 		end
 	end
@@ -191,7 +197,7 @@ class DataProcessorGroup
 
 	private
 
-	def updated_group(group_id, group)
+	def make_data_processor(group_id, group)
 		dp_id = [builder_name, name, group_id].flatten.join(':')
 		dp = DataProcessor.new(dp_id, group.raw_data_key_set, group.tag_set, &@processor)
 		log.info "#{@builder_name}/#{@name}: created new data processor: #{dp}"
@@ -206,7 +212,7 @@ class DataProcessorBuilder
 		@name = name
 		@data_type = data_type
 
-		@builder_tag_set = Set.new
+		@builder_tag_set = TagSet[]
 		dsl_method :tag do |tag|
 			@builder_tag_set << Tag.new(tag)
 		end

@@ -147,13 +147,13 @@ describe DataProcessorBuilder do
 		subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']
 		data_processors.should have(2).data_processors
 		data_processors.first.should be_a(DataProcessor)
-		data_processors.shift.tag_set.should == Set[
+		data_processors.shift.tag_set.should == TagSet[
 			Tag.new('hello'), 
 			Tag.new('world'), 
 			Tag.new('location:nina'), 
 			Tag.new('system:CPU count')
 		]
-		data_processors.shift.tag_set.should == Set[
+		data_processors.shift.tag_set.should == TagSet[
 			Tag.new('hello'), 
 			Tag.new('world'), 
 			Tag.new('location:magi'), 
@@ -162,7 +162,7 @@ describe DataProcessorBuilder do
 
 		subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']
 		data_processors.should have(1).data_processors
-		data_processors.shift.tag_set.should == Set[
+		data_processors.shift.tag_set.should == TagSet[
 			Tag.new('hello'), 
 			Tag.new('world'), 
 			Tag.new('location:magi'), 
@@ -171,7 +171,7 @@ describe DataProcessorBuilder do
 
 		subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']
 		data_processors.should have(1).data_processors
-		data_processors.shift.tag_set.should == Set[
+		data_processors.shift.tag_set.should == TagSet[
 			Tag.new('hello'), 
 			Tag.new('world'), 
 			Tag.new('location:nina'), 
@@ -180,7 +180,7 @@ describe DataProcessorBuilder do
 
 		subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']
 		data_processors.should have(1).data_processors
-		data_processors.shift.tag_set.should == Set[
+		data_processors.shift.tag_set.should == TagSet[
 			Tag.new('hello'), 
 			Tag.new('world'), 
 			Tag.new('location:nina'), 
@@ -191,7 +191,7 @@ describe DataProcessorBuilder do
 		subject.key RawDataKey['magi', 'system/CPU usage/total', 'user']
 		subject.key RawDataKey['magi', 'system/CPU usage/total', 'system']
 		data_processors.should have(1).data_processors
-		data_processors.shift.tag_set.should == Set[
+		data_processors.shift.tag_set.should == TagSet[
 			Tag.new('hello'), 
 			Tag.new('world'), 
 			Tag.new('location:magi'), 
