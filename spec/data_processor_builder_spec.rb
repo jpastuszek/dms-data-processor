@@ -97,12 +97,12 @@ describe DataProcessorBuilder do
 		end
 	end
 
-	it 'should have builder name, name and data type' do
+	it 'should have name and data type' do
 		subject.name.should == :system_cpu_usage
 		subject.data_type.name.should == 'CPU usage'
 	end
 
-	it 'should provide new data processors on when new raw data keys are available' do
+	it 'should provide data processors when raw data under new keys become available' do
 		Logging.logger.root.level = :debug
 
 		data_processors = []
@@ -135,7 +135,7 @@ describe DataProcessorBuilder do
 		data_processors.shift.id.should == 'system_cpu_usage:total:magi'
 	end
 
-	it 'provided data processor should have proper tags assigned' do
+	it 'provided data processor should have tags assigned based on raw data available' do
 		Logging.logger.root.level = :debug
 
 		data_processors = []
