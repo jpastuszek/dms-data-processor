@@ -196,5 +196,35 @@ describe DataProcessorBuilder do
 			Tag.new('system:CPU usage:total')
 		]
 	end
+
+	describe DataProcessor do
+		let(:data_processor) do
+			data_processors = []
+			subject.each do |data_processor|
+				data_processors << data_processor
+			end
+
+			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']
+			data_processors.shift
+		end
+
+		it 'should have ID based on source of it' do
+			data_processor.id.should == 'system_cpu_usage:count:nina'
+		end
+
+		it 'should have tag set' do
+			data_processor.tag_set.should == TagSet[
+				Tag.new('hello'), 
+				Tag.new('world'), 
+				Tag.new('location:nina'), 
+				Tag.new('system:CPU count')
+			]
+		end
+
+		it 'should have data type' do
+			data_processor.data_type.should be_a DataType
+			data_processor.data_type.name.should == 'CPU usage'
+		end
+	end
 end
 

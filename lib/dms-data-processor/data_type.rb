@@ -30,5 +30,9 @@ class DataType
 	attr_reader :name
 	attr_reader :range
 	attr_reader :unit
+
+	def to_s
+		"DataType[#{@name}: #{@unit}]"
+	end
 end
 

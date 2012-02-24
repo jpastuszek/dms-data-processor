@@ -19,13 +19,15 @@ require 'dms-data-processor/data_type'
 require 'set'
 
 class DataProcessor
-	def initialize(id, raw_data_key_set, tag_set, &block)
+	def initialize(data_type, id, raw_data_key_set, tag_set, &block)
+		@data_type = data_type
 		@id = id
 		@raw_data_key_set = raw_data_key_set
 		@tag_set = tag_set
 		@processor = block
 	end
 
+	attr_reader :data_type
 	attr_reader :id
 	attr_reader :tag_set
 
@@ -40,7 +42,7 @@ class DataProcessor
 	end
 
 	def to_s
-		"DataProcessor[#{@id}]<#{@tag_set.to_a.sort.map{|t| t.to_s}.join(', ')}>{#{@raw_data_key_set.to_a.map{|k| k.to_s}.sort.join(', ')}}"
+		"DataProcessor[#{@data_type}][#{@id}]<#{@tag_set.to_a.sort.map{|t| t.to_s}.join(', ')}>{#{@raw_data_key_set.to_a.map{|k| k.to_s}.sort.join(', ')}}"
 	end
 end
 
@@ -83,7 +85,8 @@ class DataProcessorGroup
 
 	include DSL
 
-	def initialize(builder_name, name, builder_tag_set)
+	def initialize(data_type, builder_name, name, builder_tag_set)
+		@data_type = data_type
 		@builder_name = builder_name
 		@name = name
 		@builder_tag_set = builder_tag_set
@@ -199,7 +202,7 @@ class DataProcessorGroup
 
 	def make_data_processor(group_id, group)
 		dp_id = [builder_name, name, group_id].flatten.join(':')
-		dp = DataProcessor.new(dp_id, group.raw_data_key_set, group.tag_set, &@processor)
+		dp = DataProcessor.new(@data_type, dp_id, group.raw_data_key_set, group.tag_set, &@processor)
 		log.info "#{@builder_name}/#{@name}: created new data processor: #{dp}"
 		@data_processor_collector.call(dp) if @data_processor_collector
 	end
@@ -224,7 +227,7 @@ class DataProcessorBuilder
 
 		@data_processor_groups = []
 		dsl_method :data_processor do |name|
-			dpg = DataProcessorGroup.new(@name, name, @builder_tag_set)
+			dpg = DataProcessorGroup.new(@data_type, @name, name, @builder_tag_set)
 			@data_processor_groups << dpg
 			dpg
 		end
