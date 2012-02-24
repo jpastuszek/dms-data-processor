@@ -83,9 +83,10 @@ class DataProcessorGroup
 
 	include DSL
 
-	def initialize(builder_name, name)
+	def initialize(builder_name, name, builder_tag_set)
 		@builder_name = builder_name
 		@name = name
+		p @builder_tag_set = builder_tag_set
 
 		@select_key_pattern_set = Set[]
 		@grouppers = []
@@ -171,6 +172,8 @@ class DataProcessorGroup
 			@group_taggers.each do |group_tagger|
 				new_tags.merge(group_tagger.call(group_id, group.raw_data_key_set))
 			end
+
+			new_tags.merge(@builder_tag_set)
 			new_tags -= group.tag_set 
 
 			unless new_tags.empty?
@@ -203,9 +206,9 @@ class DataProcessorBuilder
 		@name = name
 		@data_type = data_type
 
-		@tags = Set.new
+		@builder_tag_set = Set.new
 		dsl_method :tag do |tag|
-			@tags << tag
+			@builder_tag_set << Tag.new(tag)
 		end
 
 		@processors = {}
@@ -215,7 +218,7 @@ class DataProcessorBuilder
 
 		@data_processor_groups = []
 		dsl_method :data_processor do |name|
-			dpg = DataProcessorGroup.new(@name, name)
+			dpg = DataProcessorGroup.new(@name, name, @builder_tag_set)
 			@data_processor_groups << dpg
 			dpg
 		end
