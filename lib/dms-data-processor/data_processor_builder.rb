@@ -30,6 +30,7 @@ class DataProcessor
 	attr_reader :data_type
 	attr_reader :id
 	attr_reader :tag_set
+	attr_reader :raw_data_key_set
 
 	def data_set(time_from, time_to, storage)
 		@processor.call(time_from, time_to, @raw_data_key_set.map do |raw_data_key|
@@ -141,7 +142,7 @@ class DataProcessorGroup
 
 	class Group
 		def initialize
-			@raw_data_key_set = Set[]
+			@raw_data_key_set = RawDataKeySet[]
 			@tag_set = TagSet[]
 		end
 

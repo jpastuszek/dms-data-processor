@@ -39,8 +39,17 @@ class RawDataKey
 	attr_reader :path
 	attr_reader :component
 
+	def eql?(rdk)
+		@location.eql?(rdk.location) and @path.eql?(rdk.path) and @component.eql?(rdk.component)
+	end
+
 	def ==(rdk)
 		@location == rdk.location and @path == rdk.path and @component == rdk.component
+	end
+	
+	def hash
+		#TODO: is this good enough?
+		@location.hash / 3 + @path.hash  / 3 + @component.hash / 3
 	end
 
   def match?(value)
@@ -75,6 +84,9 @@ class RawDataKey
 	def to_s
 		"RawDataKey[#{@location}:#{@path}/#{@component}]"
 	end
+end
+
+class RawDataKeySet < Set
 end
 
 class RawDataKeyPattern
