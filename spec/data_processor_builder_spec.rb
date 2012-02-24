@@ -24,6 +24,8 @@ describe DataProcessorBuilder do
 	end
 
 	subject do
+		Logging.logger.root.level = :fatal
+
 		DataProcessorBuilder.new(:system_cpu_usage, data_type) do
 			tag 'hello'
 			tag 'world'
@@ -103,8 +105,6 @@ describe DataProcessorBuilder do
 	end
 
 	it 'should provide data processors when raw data under new keys become available' do
-		Logging.logger.root.level = :debug
-
 		data_processors = []
 		subject.each do |data_processor|
 			data_processors << data_processor
@@ -136,8 +136,6 @@ describe DataProcessorBuilder do
 	end
 
 	it 'provided data processor should have tags assigned based on raw data available' do
-		Logging.logger.root.level = :debug
-
 		data_processors = []
 		subject.each do |data_processor|
 			data_processors << data_processor

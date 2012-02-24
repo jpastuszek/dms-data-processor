@@ -86,7 +86,7 @@ class DataProcessorGroup
 	def initialize(builder_name, name, builder_tag_set)
 		@builder_name = builder_name
 		@name = name
-		p @builder_tag_set = builder_tag_set
+		@builder_tag_set = builder_tag_set
 
 		@select_key_pattern_set = Set[]
 		@grouppers = []
@@ -157,7 +157,7 @@ class DataProcessorGroup
 			raw_data_key.match? raw_data_key_pattern
 		end or return
 
-		log.info "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
+		log.debug "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
 
 		@grouppers.each do |groupper|
 			group_id = groupper.call(raw_data_key)
@@ -172,7 +172,7 @@ class DataProcessorGroup
 				end
 			end or next
 
-			log.info "#{@builder_name}/#{@name}: has a complete group: #{group_id}"
+			log.debug "#{@builder_name}/#{@name}: has a complete group: #{group_id}"
 
 			new_tags = TagSet[]
 			@group_taggers.each do |group_tagger|
