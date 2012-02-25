@@ -102,7 +102,7 @@ class DataProcessorGroup
 		end
 	end
 
-	class Groupper
+	class Aggregator
 		class Group
 			def initialize(id)
 				@id = id
@@ -120,17 +120,17 @@ class DataProcessorGroup
 		end
 
 		def initialize
-			@grouppers = []
+			@aggregators = []
 			@groups = {}
 		end
 
-		def <<(groupper)
-			@grouppers << groupper
+		def <<(aggregator)
+			@aggregators << aggregator
 		end
 
-		def group(raw_data_key)
-			@grouppers.each do |groupper|
-				group_id = groupper.call(raw_data_key)
+		def aggregate(raw_data_key)
+			@aggregators.each do |aggregator|
+				group_id = aggregator.call(raw_data_key)
 				next if group_id.empty?
 				(@groups[group_id] ||= Group.new(group_id)).raw_data_key_set << raw_data_key
 			end
@@ -148,7 +148,7 @@ class DataProcessorGroup
 		@builder_tag_set = builder_tag_set
 
 		@filter = Filter.new
-		@groupper = Groupper.new
+		@aggregator = Aggregator.new
 		@needed_keys_pattern_set = Set[]
 		@group_taggers = []
 
@@ -167,7 +167,7 @@ class DataProcessorGroup
 	end
 
 	def group(&block)
-		@groupper << lambda { |raw_data_key|
+		@aggregator << lambda { |raw_data_key|
 			GroupDSL.new(raw_data_key, &block).group_id
 		}
 		self
@@ -200,8 +200,8 @@ class DataProcessorGroup
 
 		log.debug "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
 
-		@groupper.group(raw_data_key)
-		@groupper.each_group do |group|
+		@aggregator.aggregate(raw_data_key)
+		@aggregator.each_group do |group|
 			@needed_keys_pattern_set.all? do |raw_data_key_pattern|
 				group.raw_data_key_set.any? do |raw_data_key|
 					raw_data_key.match? raw_data_key_pattern
