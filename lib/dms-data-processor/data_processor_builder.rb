@@ -141,6 +141,24 @@ class DataProcessorGroup
 		end
 	end
 
+	class Gate
+		def initialize
+			@needed_keys_pattern_set = Set[]
+		end
+
+		def merge(raw_data_key_pattern)
+			@needed_keys_pattern_set.merge raw_data_key_pattern
+		end
+
+		def pass?(group)
+			@needed_keys_pattern_set.all? do |raw_data_key_pattern|
+				group.raw_data_key_set.any? do |raw_data_key|
+					raw_data_key.match? raw_data_key_pattern
+				end
+			end
+		end
+	end
+
 	def initialize(data_type, builder_name, name, builder_tag_set)
 		@data_type = data_type
 		@builder_name = builder_name
@@ -149,7 +167,7 @@ class DataProcessorGroup
 
 		@filter = Filter.new
 		@aggregator = Aggregator.new
-		@needed_keys_pattern_set = Set[]
+		@gate = Gate.new
 		@group_taggers = []
 
 		@processor = nil
@@ -174,7 +192,7 @@ class DataProcessorGroup
 	end
 
 	def need(&block)
-		@needed_keys_pattern_set.merge(KeyDSL.new(&block).key_set)
+		@gate.merge(KeyDSL.new(&block).key_set)
 		self
 	end
 
@@ -202,11 +220,7 @@ class DataProcessorGroup
 
 		@aggregator.aggregate(raw_data_key)
 		@aggregator.each_group do |group|
-			@needed_keys_pattern_set.all? do |raw_data_key_pattern|
-				group.raw_data_key_set.any? do |raw_data_key|
-					raw_data_key.match? raw_data_key_pattern
-				end
-			end or next
+			@gate.pass?(group) or next
 
 			log.debug "#{@builder_name}/#{@name}: has a complete group: #{group}"
 
