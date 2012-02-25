@@ -63,7 +63,7 @@ class DataProcessorGroup
 	class GroupDSL
 		include DSL
 		def initialize(raw_data_key, &block)
-			@group_id = GroupID.new
+			@group_id = []
 			dsl_method :by do |value|
 				@group_id << value.to_s
 			end
@@ -86,14 +86,69 @@ class DataProcessorGroup
 
 	include DSL
 
+	class Filter
+		def initialize
+			@raw_data_key_pattern_set = Set[]
+		end
+
+		def merge(raw_data_key_pattern_set)
+			@raw_data_key_pattern_set.merge(raw_data_key_pattern_set)
+		end
+
+		def pass?(raw_data_key)
+			@raw_data_key_pattern_set.any? do |raw_data_key_pattern|
+				raw_data_key.match? raw_data_key_pattern
+			end or return
+		end
+	end
+
+	class Groupper
+		class Group
+			def initialize(id)
+				@id = id
+				@raw_data_key_set = RawDataKeySet[]
+				@tag_set = TagSet[]
+			end
+
+			attr_reader :id
+			attr_reader :raw_data_key_set
+			attr_reader :tag_set
+
+			def to_s
+				"<#{id.map{|e| e.to_s}.join(':')}>"
+			end
+		end
+
+		def initialize
+			@grouppers = []
+			@groups = {}
+		end
+
+		def <<(groupper)
+			@grouppers << groupper
+		end
+
+		def group(raw_data_key)
+			@grouppers.each do |groupper|
+				group_id = groupper.call(raw_data_key)
+				next if group_id.empty?
+				(@groups[group_id] ||= Group.new(group_id)).raw_data_key_set << raw_data_key
+			end
+		end
+
+		def each_group(&block)
+			@groups.each_value(&block)
+		end
+	end
+
 	def initialize(data_type, builder_name, name, builder_tag_set)
 		@data_type = data_type
 		@builder_name = builder_name
 		@name = name
 		@builder_tag_set = builder_tag_set
 
-		@select_key_pattern_set = Set[]
-		@grouppers = []
+		@filter = Filter.new
+		@groupper = Groupper.new
 		@needed_keys_pattern_set = Set[]
 		@group_taggers = []
 
@@ -102,13 +157,17 @@ class DataProcessorGroup
 		@groups = {}
 	end
 
+	attr_reader :builder_name
+	attr_reader :name
+	attr_accessor :processor
+
 	def select(&block)
-		@select_key_pattern_set.merge(KeyDSL.new(&block).key_set)
+		@filter.merge(KeyDSL.new(&block).key_set)
 		self
 	end
 
 	def group(&block)
-		@grouppers << lambda { |raw_data_key|
+		@groupper << lambda { |raw_data_key|
 			GroupDSL.new(raw_data_key, &block).group_id
 		}
 		self
@@ -136,61 +195,34 @@ class DataProcessorGroup
 		self
 	end
 
-	attr_reader :builder_name
-	attr_reader :name
-	attr_accessor :processor
-
-	class Group
-		def initialize
-			@raw_data_key_set = RawDataKeySet[]
-			@tag_set = TagSet[]
-		end
-
-		attr_reader :raw_data_key_set
-		attr_reader :tag_set
-	end
-
-	class GroupID < Array
-		def to_s
-			"<#{map{|e| e.to_s}.join(':')}>"
-		end
-	end
-
 	def key(raw_data_key)
-		@select_key_pattern_set.any? do |raw_data_key_pattern|
-			raw_data_key.match? raw_data_key_pattern
-		end or return
+		@filter.pass?(raw_data_key) or return
 
 		log.debug "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
 
-		@grouppers.each do |groupper|
-			group_id = groupper.call(raw_data_key)
-			next if group_id.empty?
-			(@groups[group_id] ||= Group.new).raw_data_key_set << raw_data_key
-		end
-
-		@groups.each_pair do |group_id, group|
+		@groupper.group(raw_data_key)
+		@groupper.each_group do |group|
 			@needed_keys_pattern_set.all? do |raw_data_key_pattern|
 				group.raw_data_key_set.any? do |raw_data_key|
 					raw_data_key.match? raw_data_key_pattern
 				end
 			end or next
 
-			log.debug "#{@builder_name}/#{@name}: has a complete group: #{group_id}"
+			log.debug "#{@builder_name}/#{@name}: has a complete group: #{group}"
 
 			new_tags = TagSet[]
 			@group_taggers.each do |group_tagger|
-				new_tags.merge(group_tagger.call(group_id, group.raw_data_key_set))
+				new_tags.merge(group_tagger.call(group.id, group.raw_data_key_set))
 			end
 
 			new_tags.merge(@builder_tag_set)
 			new_tags -= group.tag_set 
 
 			unless new_tags.empty?
-				log.info "#{@builder_name}/#{@name}: group #{group_id} has new tags: #{new_tags}"
+				log.info "#{@builder_name}/#{@name}: group #{group} has new tags: #{new_tags}"
 				group.tag_set.merge(new_tags)
 
-				make_data_processor(group_id, group)
+				make_data_processor(group)
 			end
 		end
 	end
@@ -201,8 +233,8 @@ class DataProcessorGroup
 
 	private
 
-	def make_data_processor(group_id, group)
-		dp_id = [builder_name, name, group_id].flatten.join(':')
+	def make_data_processor(group)
+		dp_id = [builder_name, name, group.id].flatten.join(':')
 		dp = DataProcessor.new(@data_type, dp_id, group.raw_data_key_set, group.tag_set, &@processor)
 		log.info "#{@builder_name}/#{@name}: created new data processor: #{dp}"
 		@data_processor_collector.call(dp) if @data_processor_collector
