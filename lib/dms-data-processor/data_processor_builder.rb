@@ -159,6 +159,22 @@ class DataProcessorGroup
 		end
 	end
 
+	class Tagger
+		def initialize
+			@group_taggers = []
+		end
+
+		def <<(tagger)
+			@group_taggers << tagger
+		end
+
+		def tags(group)
+			@group_taggers.reduce(TagSet[]) do |tags, group_tagger|
+				tags.merge(group_tagger.call(group.id, group.raw_data_key_set))
+			end
+		end
+	end
+
 	def initialize(data_type, builder_name, name, builder_tag_set)
 		@data_type = data_type
 		@builder_name = builder_name
@@ -168,7 +184,7 @@ class DataProcessorGroup
 		@filter = Filter.new
 		@aggregator = Aggregator.new
 		@gate = Gate.new
-		@group_taggers = []
+		@tagger = Tagger.new
 
 		@processor = nil
 
@@ -197,7 +213,7 @@ class DataProcessorGroup
 	end
 
 	def each_group(&block)
-		@group_taggers << lambda { |group, raw_data_key|
+		@tagger << lambda { |group, raw_data_key|
 			TagDSL.new(group, raw_data_key, &block).tag_set
 		}
 		self
@@ -224,11 +240,7 @@ class DataProcessorGroup
 
 			log.debug "#{@builder_name}/#{@name}: has a complete group: #{group}"
 
-			new_tags = TagSet[]
-			@group_taggers.each do |group_tagger|
-				new_tags.merge(group_tagger.call(group.id, group.raw_data_key_set))
-			end
-
+			new_tags = @tagger.tags(group)
 			new_tags.merge(@builder_tag_set)
 			new_tags -= group.tag_set 
 
