@@ -44,6 +44,12 @@ class MemoryStorage
 				yield @buffer[(@next_pos - 1 - time) % @size]
 			end
 		end
+
+		def range(time_from, time_to)
+			select do |raw_datum|
+				raw_datum.time_stamp <= time_from and raw_datum.time_stamp >= time_to
+			end
+		end
 	end
 
 	def initialize(size = 10000)
