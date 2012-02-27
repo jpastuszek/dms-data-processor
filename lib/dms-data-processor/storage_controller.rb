@@ -20,6 +20,7 @@ require 'set'
 class RawDataKey
 	module Path
 		def method_missing(name, *args, &block)
+			super unless respond_to? :split
 			self.split('/').send(name, *args, &block)
 		end
 	end
@@ -154,6 +155,10 @@ class DataSource
 	def initialize(data_processor, storage)
 		@data_processor = data_processor
 		@storage = storage
+	end
+
+	def data_set(time_from, time_to)
+		@data_processor.data_set(time_from, time_to, @storage)
 	end
 
 	def hash

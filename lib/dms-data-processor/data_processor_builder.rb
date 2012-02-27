@@ -19,6 +19,21 @@ require 'dms-data-processor/data_type'
 require 'set'
 
 class DataProcessor
+	class Collector
+		def initialize(time_from, time_to, data_sources, &processor)
+			@data = {}
+			instance_exec time_from, time_to, data_sources, &processor
+		end
+
+		attr_reader :data
+
+		private
+
+		def collect(component, time_stamp, value)
+			(@data[component] ||= []) << [time_stamp, value]
+		end
+	end
+
 	def initialize(data_type, id, raw_data_key_set, tag_set, &block)
 		@data_type = data_type
 		@id = id
@@ -33,9 +48,14 @@ class DataProcessor
 	attr_reader :raw_data_key_set
 
 	def data_set(time_from, time_to, storage)
-		@processor.call(time_from, time_to, @raw_data_key_set.map do |raw_data_key|
-			storage.fetch(raw_data_key)
-		end)
+		p = Collector.new(
+			time_from, 
+			time_to, 
+			@raw_data_key_set.map{|raw_data_key| [raw_data_key, storage.fetch(raw_data_key)]},
+			&@processor
+		)
+
+		p.data
 	end
 
 	def hash

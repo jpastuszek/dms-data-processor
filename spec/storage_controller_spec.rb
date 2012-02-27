@@ -217,26 +217,22 @@ describe StorageController do
 				tag "location:#{group.first}"
 				tag "system:CPU count"
 			end.process_with do |time_from, time_to, data_sources|
-				collect data_sources.keys.length
+				collect 'count', time_from, data_sources.keys.length
 			end
 
 			processor(:cpu_time_delta) do |time_from, time_to, data_sources|
-				data_sources.each_pair do |path, location_node|
-					location_node.each_pair do |location, component_node|
-						component_node do |component, raw_data|
-							rd = raw_data.range(time_from, time_to)
+				data_sources.each do |raw_data_key, raw_data|
+					rd = raw_data.range(time_from, time_to)
 
-							old = nil
-							rd.each do |new|
-								if old
-									time_delta = (new.time - old.time).to_f
-									value_delta = (new.value - old.value).to_f / 1000
+					old = nil
+					rd.each do |new|
+						if old
+							time_delta = (new.time_stamp - old.time_stamp).to_f
+							value_delta = (new.value - old.value).to_f / 1000
 
-									collect name, new.time - (time_delta / 2),  value_delta / time_delta
-								end
-								old = new
-							end
+							collect raw_data_key.component, new.time_stamp - (time_delta / 2),  value_delta / time_delta
 						end
+						old = new
 					end
 				end
 			end
@@ -248,13 +244,13 @@ describe StorageController do
 		st << data_processor_builder
 		10.times do |sample|
 			st.store(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user'], RawDatum.new(Time.at(sample), sample * 1))
-			st.store(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system'], RawDatum.new(Time.at(sample), sample * 1))
+			st.store(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system'], RawDatum.new(Time.at(sample), sample * 2))
 
 			st.store(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user'], RawDatum.new(Time.at(sample), sample * 2))
-			st.store(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system'], RawDatum.new(Time.at(sample), sample * 2))
+			st.store(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system'], RawDatum.new(Time.at(sample), sample * 4))
 
 			st.store(RawDataKey['nina', 'system/CPU usage/total', 'user'], RawDatum.new(Time.at(sample), sample * 4))
-			st.store(RawDataKey['nina', 'system/CPU usage/total', 'system'], RawDatum.new(Time.at(sample), sample * 4))
+			st.store(RawDataKey['nina', 'system/CPU usage/total', 'system'], RawDatum.new(Time.at(sample), sample * 8))
 		end
 		st
 	end
@@ -279,6 +275,26 @@ describe StorageController do
 		subject['/mag/'].should have(2).data_sources
 
 		subject['/mag/, CPU usage'].should have(1).data_sources
+	end
+
+	describe DataSource do
+		it 'should provide data for each data set component from time range' do
+			data = subject['total'].first.data_set(Time.at(5), Time.at(0))
+			data.should include('user')
+			data.should include('system')
+
+			data['user'].shift.should == [Time.at(4.5), 0.004]
+			data['user'].shift.should == [Time.at(3.5), 0.004]
+			data['user'].shift.should == [Time.at(2.5), 0.004]
+			data['user'].shift.should == [Time.at(1.5), 0.004]
+			data['user'].shift.should == [Time.at(0.5), 0.004]
+
+			data['system'].shift.should == [Time.at(4.5), 0.008]
+			data['system'].shift.should == [Time.at(3.5), 0.008]
+			data['system'].shift.should == [Time.at(2.5), 0.008]
+			data['system'].shift.should == [Time.at(1.5), 0.008]
+			data['system'].shift.should == [Time.at(0.5), 0.008]
+		end
 	end
 end
 
