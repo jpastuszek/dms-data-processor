@@ -31,8 +31,7 @@ describe MemoryStorage do
 		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 3)
 		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 4)
 
-		system = subject['system']
-		system['system/CPU usage/cpu/0']['magi']['idle'].to_a.should == [4, 3, 2]
+		subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle']).to_a.should == [4, 3, 2]
 	end
 
 	describe MemoryStorage::RingBuffer do

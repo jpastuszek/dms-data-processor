@@ -16,61 +16,35 @@
 # along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
 
 shared_examples_for 'storage' do
-	it 'should store value under component path and location' do
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 12345)
-
-		subject['system/CPU usage/cpu/0']['system/CPU usage/cpu/0']['magi']['idle'].to_a.should == [12345]
-	end
-
 	it '#store should return true if this is first time raw datum was stored under given raw data key' do
 		subject.store(RawDataKey['magi', 'CPU usage/CPU/1', 'usage'], RawDatum.new(Time.at(0), 123)).should == true
 		subject.store(RawDataKey['magi', 'CPU usage/CPU/1', 'usage'], RawDatum.new(Time.at(1), 124)).should == false
 		subject.store(RawDataKey['magi', 'CPU usage/CPU/1', 'usage'], RawDatum.new(Time.at(2), 125)).should == false
 	end
 
-	it 'should return nodes by path prefix' do
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 12345)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/1', 'usage'], 12)
-		subject.store(RawDataKey['nina', 'system/CPU usage/cpu/1', 'usage'], 89)
-		subject.store(RawDataKey['nina', 'system/CPU usage/total', 'usage'], 42)
+	describe '#fetch' do
+		it 'should return data for given key' do
+			3.times do |sample|
+				subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], sample * 1)
+				subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], sample * 2)
+				subject.store(RawDataKey['nina', 'system/CPU usage/cpu/0', 'idle'], sample * 4)
+				subject.store(RawDataKey['nina', 'system/CPU usage/cpu/1', 'usage'], sample * 8)
+			end
 
-		cpu = subject['system/CPU usage/cpu']
-		cpu['system/CPU usage/cpu/0']['magi']['idle'].to_a.should == [12345]
-		cpu['system/CPU usage/cpu/0']['magi']['usage'].to_a.should == [213]
-		cpu['system/CPU usage/cpu/1']['magi']['usage'].to_a.should == [12]
-		cpu['system/CPU usage/cpu/1']['nina']['usage'].to_a.should == [89]
-
-		system = subject['system']
-		system['system/CPU usage/cpu/0']['magi']['idle'].to_a.should == [12345]
-		system['system/CPU usage/cpu/0']['magi']['usage'].to_a.should == [213]
-		system['system/CPU usage/cpu/1']['magi']['usage'].to_a.should == [12]
-		system['system/CPU usage/cpu/1']['nina']['usage'].to_a.should == [89]
-		system['system/CPU usage/total']['nina']['usage'].to_a.should == [42]
-	end
-
-	it 'should store elements in fifo order' do
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 1)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 2)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 3)
-
-		system = subject['system']
-		system['system/CPU usage/cpu/0']['magi']['idle'].to_a.should == [3, 2, 1]
-	end
-
-	it 'should have fetch method that finds path literally and behaves like Hash#fetch' do
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 1)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 2)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 3)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 4)
-
-
-		expect {
-			subject.fetch('system/CPU usage/cpu').should be_nil
-		}.to raise_error(KeyError, 'key not found')
-		subject.fetch('system/CPU usage/cpu', nil).should be_nil
-
-		subject.fetch('system/CPU usage/cpu/0').should_not be_nil
+			subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle']).to_a.should == [2, 1, 0]
+			subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage']).to_a.should == [4, 2, 0]
+			subject.fetch(RawDataKey['nina', 'system/CPU usage/cpu/0', 'idle']).to_a.should == [8, 4, 0]
+			subject.fetch(RawDataKey['nina', 'system/CPU usage/cpu/1', 'usage']).to_a.should == [16, 8, 0]
+		end
+		
+		it 'should behave like Hash#fetch' do
+			subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 1)
+			expect {
+				subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu', 'idle']).should be_nil
+			}.to raise_error(KeyError, 'key not found')
+			subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu', 'idle'], nil).should be_nil
+			subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], nil).should_not be_nil
+		end
 	end
 end
 

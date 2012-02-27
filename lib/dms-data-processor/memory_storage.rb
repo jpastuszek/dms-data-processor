@@ -64,16 +64,8 @@ class MemoryStorage
 		end
 	end
 
-	def [](prefix)
-		prefix = prefix.dup
-		prefix.extend(RawDataKey::Path)
-		find_node(prefix.to_a)
-	end
-
-	def fetch(path, default = :magick, &block)
-		path = path.dup
-		path.extend(RawDataKey::Path)
-		path = path.to_a
+	def fetch(raw_data_key, default = :magick, &block)
+		path = raw_data_key.path.to_a
 		root = @store
 
 		until path.empty?
@@ -81,7 +73,13 @@ class MemoryStorage
 			break unless root
 		end
 
-		return root if root.is_a? Leaf
+		if root.is_a? Leaf
+			if location = root[raw_data_key.location]
+				if component = location[raw_data_key.component]
+					return component
+				end
+			end
+		end
 
 		return default unless default == :magick
 		return block.call(path) if block
