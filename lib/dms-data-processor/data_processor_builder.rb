@@ -229,7 +229,7 @@ class DataProcessorGroup
 		self
 	end
 
-	def key(raw_data_key)
+	def data_processors(raw_data_key)
 		@filter.pass?(raw_data_key) or return []
 
 		log.debug "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
@@ -302,9 +302,9 @@ class DataProcessorBuilder
 	attr_reader :name
 	attr_reader :data_type
 
-	def key(raw_data_key)
+	def data_processors(raw_data_key)
 		@data_processor_groups.inject([]) do |data_processors, data_processor_group|
-			data_processors.concat(data_processor_group.key(raw_data_key))
+			data_processors.concat(data_processor_group.data_processors(raw_data_key))
 		end
 	end
 end
