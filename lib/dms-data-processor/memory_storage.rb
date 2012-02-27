@@ -53,8 +53,15 @@ class MemoryStorage
 
 	def store(raw_data_key, raw_datum)
 		node = make_nodes(raw_data_key.path.to_a)
-		((node[raw_data_key.location] ||= {})[raw_data_key.component] ||= RingBuffer.new(@size)) << raw_datum
-		self
+		components = (node[raw_data_key.location] ||= {})
+
+		if component = components[raw_data_key.component]
+			component << raw_datum
+			return false
+		else
+			(components[raw_data_key.component] = RingBuffer.new(@size)) << raw_datum
+			return true
+		end
 	end
 
 	def [](prefix)

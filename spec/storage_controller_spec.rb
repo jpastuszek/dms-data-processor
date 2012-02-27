@@ -163,104 +163,122 @@ end
 
 
 describe StorageController do
+	let(:data_processor_builder) do
+		Logging.logger.root.level = :fatal
+
+		data_type = DataType.new('CPU usage') do
+			unit '%'
+			range 0...100
+		end
+		DataProcessorBuilder.new(:system_cpu_usage, data_type) do
+			tag 'hello'
+			tag 'world'
+
+			data_processor(:cpu).select do
+				key 'system/CPU usage/CPU[user, system, stolen]'
+			end.group do |raw_data_key|
+				by raw_data_key.location
+				by raw_data_key.path.last
+			end.need do
+				key 'system/CPU usage/CPU[user]'
+				key 'system/CPU usage/CPU[system]'
+			end.each_group do |group, raw_data_keys|
+				tag "location:#{group.first}"
+				tag "system:CPU usage:CPU:#{group.last}"
+
+				tag "virtual" if raw_data_keys.any? do |raw_data_key|
+					raw_data_key.component == 'stolen'
+				end
+			end.process_with(:cpu_time_delta)
+
+			data_processor(:total).select do
+				key 'system/CPU usage/total[user, system, stolen]'
+			end.group do |raw_data_key|
+				by raw_data_key.location
+			end.need do
+				key 'system/CPU usage/total[user]'
+				key 'system/CPU usage/total[system]'
+			end.each_group do |group, raw_data_keys|
+				tag "location:#{group.first}"
+				tag "system:CPU usage:total"
+
+				tag "virtual" if raw_data_keys.any? do |raw_data_key|
+					raw_data_key.component == 'stolen'
+				end
+			end.process_with :cpu_time_delta
+
+			data_processor(:count).select do
+				key 'system/CPU usage/CPU'
+			end.group do |raw_data_key|
+				by raw_data_key.location
+			end.need do
+				key 'system/CPU usage/CPU'
+			end.each_group do |group, raw_data_keys|
+				tag "location:#{group.first}"
+				tag "system:CPU count"
+			end.process_with do |time_from, time_to, data_sources|
+				collect data_sources.keys.length
+			end
+
+			processor(:cpu_time_delta) do |time_from, time_to, data_sources|
+				data_sources.each_pair do |path, location_node|
+					location_node.each_pair do |location, component_node|
+						component_node do |component, raw_data|
+							rd = raw_data.range(time_from, time_to)
+
+							old = nil
+							rd.each do |new|
+								if old
+									time_delta = (new.time - old.time).to_f
+									value_delta = (new.value - old.value).to_f / 1000
+
+									collect name, new.time - (time_delta / 2),  value_delta / time_delta
+								end
+								old = new
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
 	subject do
-		StorageController.new(MemoryStorage.new(100))
+		st = StorageController.new(MemoryStorage.new(100))
+		st << data_processor_builder
+		10.times do |sample|
+			st.store(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user'], RawDatum.new(Time.at(sample), sample * 1))
+			st.store(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system'], RawDatum.new(Time.at(sample), sample * 1))
+
+			st.store(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user'], RawDatum.new(Time.at(sample), sample * 2))
+			st.store(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system'], RawDatum.new(Time.at(sample), sample * 2))
+
+			st.store(RawDataKey['nina', 'system/CPU usage/total', 'user'], RawDatum.new(Time.at(sample), sample * 4))
+			st.store(RawDataKey['nina', 'system/CPU usage/total', 'system'], RawDatum.new(Time.at(sample), sample * 4))
+		end
+		st
 	end
 
-	it_behaves_like 'storage'
+	it 'should provide data sources by tag expression' do
+		subject['bogous'].should be_empty
 
-	it 'should notify on stored value under given prefix' do
-		notices = []
-		subject.notify_value('system') do |raw_data_key, raw_datum|
-			notices << [1, raw_data_key, raw_datum]
-		end
+		subject['hello'].should have(5).data_sources
+		subject['hello'].each{|data_source| data_source.should be_a DataSource}
 
-		subject.notify_value('system/CPU usage/cpu/0') do |raw_data_key, raw_datum|
-			notices << [2, raw_data_key, raw_datum]
-		end
+		subject['world'].should have(5).data_sources
+		subject['system'].should have(5).data_sources
+		subject['location'].should have(5).data_sources
 
-		subject.notify_value('system/bogous') do |raw_data_key, raw_datum|
-			notices << [3, raw_data_key, raw_datum]
-		end
+		subject['nina'].should have(3).data_sources
+		subject['magi'].should have(2).data_sources
 
-		subject.notify_value('jmx/tomcat') do |raw_data_key, raw_datum|
-			notices << [4, raw_data_key, raw_datum]
-		end
+		subject['CPU count'].should have(2).data_sources
+		subject['total'].should have(1).data_sources
+		subject['cpu:1'].should have(1).data_sources
 
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213)
-		notices.should have(2).notices
-		notices.shift.should == [1, RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213]
-		notices.shift.should == [2, RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213]
+		subject['/mag/'].should have(2).data_sources
 
-		subject.store(RawDataKey['nina', 'system/CPU usage/cpu/1', 'idle'], 123)
-		notices.should have(1).notices
-		notices.shift.should == [1, RawDataKey['nina', 'system/CPU usage/cpu/1', 'idle'], 123]
-
-		subject.store(RawDataKey['nina', 'jmx/tomcat/test', 'idle'], 123)
-		notices.should have(1).notices
-		notices.shift.should == [4, RawDataKey['nina', 'jmx/tomcat/test', 'idle'], 123]
-
-		subject.store(RawDataKey['nina', 'jmx/tomc', 'idle'], 123)
-		notices.should have(0).notices
-
-		subject.store(RawDataKey['nina', 'tomcat', 'idle'], 123)
-		notices.should have(0).notices
-
-		subject.store(RawDataKey['nina', 'jmx', 'idle'], 123)
-		notices.should have(0).notices
-	end
-
-	it 'should notify when new component is stored under given path prefix' do
-		notices = []
-		subject.notify_raw_data_key('system') do |raw_data_key|
-			notices << [1, raw_data_key]
-		end
-
-		subject.notify_raw_data_key('system/CPU usage/cpu/0') do |raw_data_key|
-			notices << [2, raw_data_key]
-		end
-
-		subject.notify_raw_data_key('system/bogous') do |raw_data_key|
-			notices << [3, raw_data_key]
-		end
-
-		subject.notify_raw_data_key('jmx/tomcat') do |raw_data_key|
-			notices << [4, raw_data_key]
-		end
-
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213)
-		notices.should have(2).notices
-		notices.shift.should == [1, RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage']]
-		notices.shift.should == [2, RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage']]
-
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 213)
-		notices.should have(2).notices
-		notices.shift.should == [1, RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle']]
-		notices.shift.should == [2, RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle']]
-
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 213)
-		notices.should have(0).notices
-
-		subject.store(RawDataKey['nina', 'system/CPU usage/cpu/1', 'idle'], 123)
-		notices.should have(1).notices
-		notices.shift.should == [1, RawDataKey['nina', 'system/CPU usage/cpu/1', 'idle']]
-
-		subject.store(RawDataKey['nina', 'system/CPU usage/cpu/1', 'usage'], 123)
-		notices.should have(1).notices
-		notices.shift.should == [1, RawDataKey['nina', 'system/CPU usage/cpu/1', 'usage']]
-
-		subject.store(RawDataKey['nina', 'jmx/tomcat/test', 'idle'], 123)
-		notices.should have(1).notices
-		notices.shift.should == [4, RawDataKey['nina', 'jmx/tomcat/test', 'idle']]
-
-		subject.store(RawDataKey['nina', 'jmx/tomc', 'idle'], 123)
-		notices.should have(0).notices
-
-		subject.store(RawDataKey['nina', 'tomcat', 'idle'], 123)
-		notices.should have(0).notices
-
-		subject.store(RawDataKey['nina', 'jmx', 'idle'], 123)
-		notices.should have(0).notices
+		subject['/mag/, CPU usage'].should have(1).data_sources
 	end
 end
 

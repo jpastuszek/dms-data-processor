@@ -39,7 +39,7 @@ class DataProcessor
 	end
 
 	def hash
-		@id
+		@id.hash
 	end
 
 	def to_s

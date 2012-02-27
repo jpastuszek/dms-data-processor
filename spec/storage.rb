@@ -22,6 +22,12 @@ shared_examples_for 'storage' do
 		subject['system/CPU usage/cpu/0']['system/CPU usage/cpu/0']['magi']['idle'].to_a.should == [12345]
 	end
 
+	it '#store should return true if this is first time raw datum was stored under given raw data key' do
+		subject.store(RawDataKey['magi', 'CPU usage/CPU/1', 'usage'], RawDatum.new(Time.at(0), 123)).should == true
+		subject.store(RawDataKey['magi', 'CPU usage/CPU/1', 'usage'], RawDatum.new(Time.at(1), 124)).should == false
+		subject.store(RawDataKey['magi', 'CPU usage/CPU/1', 'usage'], RawDatum.new(Time.at(2), 125)).should == false
+	end
+
 	it 'should return nodes by path prefix' do
 		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 12345)
 		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'usage'], 213)

@@ -150,81 +150,59 @@ class RawDatum
 	attr_reader :value
 end
 
-class StorageController
-	class Node < Hash
-		def initialize
-			super
-			@callbacks = Set.new
-		end
-
-		def <<(callback)
-			@callbacks << callback
-		end
-
-		attr_reader :callbacks
+class DataSource
+	def initialize(data_processor, storage)
+		@data_processor = data_processor
+		@storage = storage
 	end
 
+	def hash
+		@data_processor.hash
+	end
+
+	def eql?(ds)
+		hash == ds.hash
+	end
+
+	def ==(rdk)
+		hash == ds.hash
+	end
+	
+	def hash
+		#TODO: is this good enough?
+		@data_processor.hash / 2 + @storage.hash / 2
+	end
+
+	def inspect
+		"#<DataSource:#{hash}>"
+	end
+end
+
+class StorageController
 	def initialize(storage)
 		@storage = storage
-		@notify_value_tree = {}
-		@notify_raw_data_key = {}
+		@tag_space = TagSpace.new
+		@data_processor_builders = Set[]
 	end
 
 	def store(raw_data_key, raw_datum)
-		new_component = ! @storage.fetch(raw_data_key.path, {}).fetch(raw_data_key.location, {}).has_key?(raw_data_key.component)
-
-		@storage.store(raw_data_key, raw_datum)
-
-		find_callbacks(raw_data_key.path.to_a, @notify_value_tree).each do |callback|
-			callback[raw_data_key, raw_datum]
-		end
-
-		if new_component
-			find_callbacks(raw_data_key.path.to_a, @notify_raw_data_key).each do |callback|
-				callback[raw_data_key]
+		if @storage.store(raw_data_key, raw_datum)
+			@data_processor_builders.each do |data_processor_builder|
+				data_processor_builder.data_processors(raw_data_key).each do |data_processor|
+					data_processor.tag_set.each do |tag|
+						@tag_space[tag] = DataSource.new(data_processor, @storage)
+					end
+				end
 			end
 		end
 	end
 
-	def [](prefix)
-		@storage[prefix]
+	def [](tag_expression)
+		@tag_space[tag_expression]
 	end
 
-	def fetch(path, default = :magick, &block)
-		@storage.fetch(path, default, &block)
-	end
-
-	def notify_value(prefix, &callback)
-		prefix = prefix.dup
-		prefix.extend(RawDataKey::Path)
-		make_nodes(prefix.to_a, @notify_value_tree) << callback
-	end
-
-	def notify_raw_data_key(prefix, &callback)
-		prefix = prefix.dup
-		prefix.extend(RawDataKey::Path)
-		make_nodes(prefix.to_a, @notify_raw_data_key) << callback
-	end
-
-	private
-
-	# TODO: move to own class
-	def find_callbacks(path_elements, root)
-		callbacks = Set.new
-		return callbacks if path_elements.empty?
-
-		node = root[path_elements.shift]
-		return callbacks unless node
-
-		callbacks.merge(node.callbacks)
-		callbacks.merge(find_callbacks(path_elements, node))
-
-		callbacks
-	end
-
-	def make_nodes(path_elements, root)
-		return root if path_elements.empty?
-		make_nodes(path_elements, root[path_elements.shift] ||= Node.new)
+	def <<(data_processor_builder)
+		@data_processor_builders << data_processor_builder
 	end
 end
 
