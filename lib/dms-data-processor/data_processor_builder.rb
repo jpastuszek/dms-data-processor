@@ -230,10 +230,11 @@ class DataProcessorGroup
 	end
 
 	def key(raw_data_key)
-		@filter.pass?(raw_data_key) or return
+		@filter.pass?(raw_data_key) or return []
 
 		log.debug "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
 
+		data_processors = []
 		@aggregator.aggregate(raw_data_key)
 		@aggregator.each_group do |group|
 			@gate.pass?(group) or next
@@ -248,13 +249,11 @@ class DataProcessorGroup
 				log.info "#{@builder_name}/#{@name}: group #{group} has new tags: #{new_tags}"
 				group.tag_set.merge(new_tags)
 
-				make_data_processor(group)
+				data_processors << make_data_processor(group)
 			end
 		end
-	end
 
-	def each(&block)
-		@data_processor_collector = block
+		data_processors
 	end
 
 	private
@@ -263,7 +262,7 @@ class DataProcessorGroup
 		dp_id = [builder_name, name, group.id].flatten.join(':')
 		dp = DataProcessor.new(@data_type, dp_id, group.raw_data_key_set, group.tag_set, &@processor)
 		log.info "#{@builder_name}/#{@name}: created new data processor: #{dp}"
-		@data_processor_collector.call(dp) if @data_processor_collector
+		dp
 	end
 end
 
@@ -303,15 +302,9 @@ class DataProcessorBuilder
 	attr_reader :name
 	attr_reader :data_type
 
-	def each(&block)
-		@data_processor_groups.each do |data_processor_group|
-			data_processor_group.each(&block)
-		end
-	end
-
 	def key(raw_data_key)
-		@data_processor_groups.each do |data_processor_group|
-			data_processor_group.key(raw_data_key)
+		@data_processor_groups.inject([]) do |data_processors, data_processor_group|
+			data_processors.concat(data_processor_group.key(raw_data_key))
 		end
 	end
 end

@@ -105,44 +105,37 @@ describe DataProcessorBuilder do
 	end
 
 	it 'should provide data processors when raw data under new keys become available' do
-		data_processors = []
-		subject.each do |data_processor|
-			data_processors << data_processor
-		end
-
-		subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']
-		subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']
-		data_processors.should have(2).data_processors
-		data_processors.shift.should be_a DataProcessor
-		data_processors.shift.should be_a DataProcessor
-
-		subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']
+		data_processors = subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user'])
 		data_processors.should have(1).data_processors
 		data_processors.shift.should be_a DataProcessor
 
-		subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']
+		data_processors = subject.key(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system'])
 		data_processors.should have(1).data_processors
 		data_processors.shift.should be_a DataProcessor
 
-		subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']
+		data_processors = subject.key(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user'])
 		data_processors.should have(1).data_processors
 		data_processors.shift.should be_a DataProcessor
 
-		subject.key RawDataKey['magi', 'system/CPU usage/total', 'user']
-		subject.key RawDataKey['magi', 'system/CPU usage/total', 'system']
+		data_processors = subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system'])
+		data_processors.should have(1).data_processors
+		data_processors.shift.should be_a DataProcessor
+
+		data_processors = subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen'])
+		data_processors.should have(1).data_processors
+		data_processors.shift.should be_a DataProcessor
+
+		data_processors = subject.key(RawDataKey['magi', 'system/CPU usage/total', 'user'])
+		data_processors.should be_empty
+
+		data_processors = subject.key(RawDataKey['magi', 'system/CPU usage/total', 'system'])
 		data_processors.should have(1).data_processors
 		data_processors.shift.should be_a DataProcessor
 	end
 
 	describe DataProcessor do
 		let(:data_processor) do
-			data_processors = []
-			subject.each do |data_processor|
-				data_processors << data_processor
-			end
-
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']
-			data_processors.shift
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).shift
 		end
 
 		it 'should have data type' do
@@ -151,69 +144,45 @@ describe DataProcessorBuilder do
 		end
 
 		it 'should have ID based on source of it' do
-			data_processors = []
-			subject.each do |data_processor|
-				data_processors << data_processor
-			end
-
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']
-			subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']
-			data_processors.shift.id.should == 'system_cpu_usage:count:nina'
-			data_processors.shift.id.should == 'system_cpu_usage:count:magi'
-
-			subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']
-			data_processors.shift.id.should == 'system_cpu_usage:cpu:magi:1'
-
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']
-			data_processors.shift.id.should == 'system_cpu_usage:cpu:nina:0'
-
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']
-			data_processors.shift.id.should == 'system_cpu_usage:cpu:nina:0'
-
-			subject.key RawDataKey['magi', 'system/CPU usage/total', 'user']
-			subject.key RawDataKey['magi', 'system/CPU usage/total', 'system']
-			data_processors.shift.id.should == 'system_cpu_usage:total:magi'
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).first.id.should == 'system_cpu_usage:count:nina'
+			subject.key(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).first.id.should == 'system_cpu_usage:count:magi'
+			subject.key(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']).first.id.should == 'system_cpu_usage:cpu:magi:1'
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']).first.id.should == 'system_cpu_usage:cpu:nina:0'
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']).first.id.should == 'system_cpu_usage:cpu:nina:0'
+			subject.key(RawDataKey['magi', 'system/CPU usage/total', 'user']).should be_empty
+			subject.key(RawDataKey['magi', 'system/CPU usage/total', 'system']).first.id.should == 'system_cpu_usage:total:magi'
 		end
 
 		it 'should have a tag set based on available raw data' do
-			data_processors = []
-			subject.each do |data_processor|
-				data_processors << data_processor
-			end
-
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']
-			subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']
-			data_processors.shift.tag_set.should == TagSet[
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).first.tag_set.should == TagSet[
 				Tag.new('hello'), 
 				Tag.new('world'), 
 				Tag.new('location:nina'), 
 				Tag.new('system:CPU count')
 			]
-			data_processors.shift.tag_set.should == TagSet[
+
+			subject.key(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).first.tag_set.should == TagSet[
 				Tag.new('hello'), 
 				Tag.new('world'), 
 				Tag.new('location:magi'), 
 				Tag.new('system:CPU count')
 			]
 
-			subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']
-			data_processors.shift.tag_set.should == TagSet[
+			subject.key(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']).first.tag_set.should == TagSet[
 				Tag.new('hello'), 
 				Tag.new('world'), 
 				Tag.new('location:magi'), 
 				Tag.new('system:CPU usage:CPU:1')
 			]
 
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']
-			data_processors.shift.tag_set.should == TagSet[
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']).first.tag_set.should == TagSet[
 				Tag.new('hello'), 
 				Tag.new('world'), 
 				Tag.new('location:nina'), 
 				Tag.new('system:CPU usage:CPU:0')
 			]
 
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']
-			data_processors.shift.tag_set.should == TagSet[
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']).first.tag_set.should == TagSet[
 				Tag.new('hello'), 
 				Tag.new('world'), 
 				Tag.new('location:nina'), 
@@ -221,9 +190,9 @@ describe DataProcessorBuilder do
 				Tag.new('virtual')
 			]
 
-			subject.key RawDataKey['magi', 'system/CPU usage/total', 'user']
-			subject.key RawDataKey['magi', 'system/CPU usage/total', 'system']
-			data_processors.shift.tag_set.should == TagSet[
+			subject.key(RawDataKey['magi', 'system/CPU usage/total', 'user']).should be_empty
+
+			subject.key(RawDataKey['magi', 'system/CPU usage/total', 'system']).first.tag_set.should == TagSet[
 				Tag.new('hello'), 
 				Tag.new('world'), 
 				Tag.new('location:magi'), 
@@ -232,45 +201,32 @@ describe DataProcessorBuilder do
 		end
 
 		it 'should have a proper key set' do
-			data_processors = []
-			subject.each do |data_processor|
-				data_processors << data_processor
-			end
-
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']
-			subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']
-
-			Set[RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']].should == Set[RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']]
-
-			data_processors.shift.raw_data_key_set.should == RawDataKeySet[
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).first.raw_data_key_set.should == RawDataKeySet[
 				RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']
 			]
-			data_processors.shift.raw_data_key_set.should == RawDataKeySet[
+
+			subject.key(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).first.raw_data_key_set.should == RawDataKeySet[
 				RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']
 			]
 
-			subject.key RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']
-			data_processors.shift.raw_data_key_set.should == RawDataKeySet[
+			subject.key(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']).first.raw_data_key_set.should == RawDataKeySet[
 				RawDataKey['magi', 'system/CPU usage/CPU/1', 'user'],
 				RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']
 			]
 
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']
-			data_processors.shift.raw_data_key_set.should == RawDataKeySet[
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']).first.raw_data_key_set.should == RawDataKeySet[
 				RawDataKey['nina', 'system/CPU usage/CPU/0', 'user'],
 				RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']
 			]
 
-			subject.key RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']
-			data_processors.shift.raw_data_key_set.should == RawDataKeySet[
+			subject.key(RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']).first.raw_data_key_set.should == RawDataKeySet[
 				RawDataKey['nina', 'system/CPU usage/CPU/0', 'user'],
 				RawDataKey['nina', 'system/CPU usage/CPU/0', 'system'],
 				RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen'],
 			]
 
-			subject.key RawDataKey['magi', 'system/CPU usage/total', 'user']
-			subject.key RawDataKey['magi', 'system/CPU usage/total', 'system']
-			data_processors.shift.raw_data_key_set.should == RawDataKeySet[
+			subject.key(RawDataKey['magi', 'system/CPU usage/total', 'user']).should be_empty
+			subject.key(RawDataKey['magi', 'system/CPU usage/total', 'system']).first.raw_data_key_set.should == RawDataKeySet[
 				RawDataKey['magi', 'system/CPU usage/total', 'user'],
 				RawDataKey['magi', 'system/CPU usage/total', 'system']
 			]
