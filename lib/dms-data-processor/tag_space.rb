@@ -50,15 +50,7 @@ class TagSpace
 	end
 
 	def [](value)
-		pattern_set = if value.is_a?(TagExpression)
-			value
-		elsif value.is_a?(TagPattern)
-			TagExpression.new([value])
-		else
-			TagExpression.new(value)
-		end
-
-		sets = pattern_set.reduce([]) do |collection, pattern|
+		sets = value.to_tag_expression.reduce([]) do |collection, pattern|
 			collection << fetch(pattern, @tags)
 		end
 
