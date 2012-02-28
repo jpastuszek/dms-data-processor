@@ -15,10 +15,28 @@
 # You should have received a copy of the GNU General Public License
 # along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
 
-require 'dms-core'
-require 'dms-data-processor/tag_space'
-require 'dms-data-processor/memory_storage'
-require 'dms-data-processor/storage_controller'
-require 'dms-data-processor/data_processor_builder'
-require 'dms-data-processor/data_processor_module'
+class DataProcessorModule < ModuleBase
+	def initialize(module_name, &block)
+		@data_processor_builders = []
+		dsl_method :data_processor do |data_type_name, &block|
+			DataProcessorBuilder.new("#{module_name}/#{data_type_name}", data_type_name, &block).tap{|data_processor_builder| @data_processor_builders << data_processor_builder}
+		end
+
+		super
+
+		if @data_processor_builders.empty?
+			log.warn "module '#{module_name}' defines no data processors"
+		else
+			log.info { "loaded data processors for data types: #{@data_processor_builders.map{|dpb| "#{dpb.data_type_name}"}.sort.join(', ')}" }
+		end
+	end
+
+	attr_reader :data_processor_builders
+end
+
+class DataProcessorModules < ModuleLoader
+	def initialize
+		super(DataProcessorModule)
+	end
+end
 
