@@ -161,6 +161,14 @@ class DataSource
 		@data_processor.data_set(time_from, time_to, @storage)
 	end
 
+	def data_type
+		@data_processor.data_type
+	end
+
+	def tag_set
+		@data_processor.tag_set
+	end
+
 	def hash
 		@data_processor.hash
 	end

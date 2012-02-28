@@ -278,6 +278,16 @@ describe StorageController do
 	end
 
 	describe DataSource do
+		it 'should provide data type' do
+			subject['total'].first.data_type.should be_a DataType
+			subject['total'].first.data_type.name.should == 'CPU usage'
+		end
+
+		it 'should provide tag set' do
+			subject['total'].first.tag_set.should be_a TagSet
+			subject['total'].first.tag_set.to_s.should == 'hello, location:nina, system:CPU usage:total, world'
+		end
+
 		it 'should provide data for each data set component from time range' do
 			data = subject['total'].first.data_set(Time.at(5), Time.at(0))
 			data.should include('user')
