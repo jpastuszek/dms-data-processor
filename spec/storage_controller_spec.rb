@@ -166,11 +166,7 @@ describe StorageController do
 	let(:data_processor_builder) do
 		Logging.logger.root.level = :fatal
 
-		data_type = DataType.new('CPU usage') do
-			unit '%'
-			range 0...100
-		end
-		DataProcessorBuilder.new(:system_cpu_usage, data_type) do
+		DataProcessorBuilder.new(:system_cpu_usage, 'CPU usage') do
 			tag 'hello'
 			tag 'world'
 
@@ -278,9 +274,8 @@ describe StorageController do
 	end
 
 	describe DataSource do
-		it 'should provide data type' do
-			subject['total'].first.data_type.should be_a DataType
-			subject['total'].first.data_type.name.should == 'CPU usage'
+		it 'should provide data type name' do
+			subject['total'].first.data_type.should == 'CPU usage'
 		end
 
 		it 'should provide tag set' do

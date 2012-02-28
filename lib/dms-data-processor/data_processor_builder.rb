@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
 
-require 'dms-data-processor/data_type'
 require 'set'
 
 class DataProcessor

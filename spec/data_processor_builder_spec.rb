@@ -16,17 +16,10 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
 describe DataProcessorBuilder do
-	let(:data_type) do
-		DataType.new('CPU usage') do
-			unit '%'
-			range 0...100
-		end
-	end
-
 	subject do
 		Logging.logger.root.level = :fatal
 
-		DataProcessorBuilder.new(:system_cpu_usage, data_type) do
+		DataProcessorBuilder.new(:system_cpu_usage, 'CPU usage') do
 			tag 'hello'
 			tag 'world'
 
@@ -101,7 +94,7 @@ describe DataProcessorBuilder do
 
 	it 'should have name and data type' do
 		subject.name.should == :system_cpu_usage
-		subject.data_type.name.should == 'CPU usage'
+		subject.data_type.should == 'CPU usage'
 	end
 
 	it 'should provide data processors when raw data under new keys become available' do
@@ -139,8 +132,7 @@ describe DataProcessorBuilder do
 		end
 
 		it 'should have data type' do
-			data_processor.data_type.should be_a DataType
-			data_processor.data_type.name.should == 'CPU usage'
+			data_processor.data_type.should == 'CPU usage'
 		end
 
 		it 'should have ID based on source of it' do
