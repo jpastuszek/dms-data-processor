@@ -201,7 +201,7 @@ class StorageController
 	def store(raw_data_key, raw_datum)
 		if @storage.store(raw_data_key, raw_datum)
 			@data_processor_builders.each do |data_processor_builder|
-				data_processor_builder.data_processors(raw_data_key).each do |data_processor|
+				data_processor_builder.classify(raw_data_key).each do |data_processor|
 					data_processor.tag_set.each do |tag|
 						@tag_space[tag] = DataSource.new(data_processor, @storage)
 					end

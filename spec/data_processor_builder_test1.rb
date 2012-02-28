@@ -2,7 +2,7 @@ DataProcessorBuilder.new('system CPU usage', 'CPU usage') do
 	tag 'hello'
 	tag 'world'
 
-	data_processor('cpu').select do
+	classifier('cpu').select do
 		key 'system/CPU usage/CPU[user, system, stolen]'
 	end.group do |raw_data_key|
 		by raw_data_key.location
@@ -19,7 +19,7 @@ DataProcessorBuilder.new('system CPU usage', 'CPU usage') do
 		end
 	end.process_with(:cpu_time_delta)
 
-	data_processor('total').select do
+	classifier('total').select do
 		key 'system/CPU usage/total[user, system, stolen]'
 	end.group do |raw_data_key|
 		by raw_data_key.location
@@ -35,7 +35,7 @@ DataProcessorBuilder.new('system CPU usage', 'CPU usage') do
 		end
 	end.process_with :cpu_time_delta
 
-	data_processor('count').select do
+	classifier('count').select do
 		key 'system/CPU usage/CPU'
 	end.group do |raw_data_key|
 		by raw_data_key.location
@@ -65,3 +65,4 @@ DataProcessorBuilder.new('system CPU usage', 'CPU usage') do
 		end
 	end
 end
+

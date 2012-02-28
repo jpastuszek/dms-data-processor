@@ -47,14 +47,12 @@ class DataProcessor
 	attr_reader :raw_data_key_set
 
 	def data_set(time_from, time_to, storage)
-		p = Collector.new(
+		Collector.new(
 			time_from, 
 			time_to, 
 			@raw_data_key_set.map{|raw_data_key| [raw_data_key, storage.fetch(raw_data_key)]},
 			&@processor
-		)
-
-		p.data
+		).data
 	end
 
 	def hash
@@ -67,7 +65,7 @@ class DataProcessor
 end
 
 class DataProcessorBuilder
-	class DataProcessorGroup
+	class Classifier
 		class KeyDSL
 			include DSL
 			def initialize(&block)
@@ -249,7 +247,7 @@ class DataProcessorBuilder
 			self
 		end
 
-		def data_processors(raw_data_key)
+		def classify(raw_data_key)
 			@filter.pass?(raw_data_key) or return []
 
 			log.debug "#{@builder_name}/#{@name}: processing new raw data key: #{raw_data_key}"
@@ -302,28 +300,28 @@ class DataProcessorBuilder
 			@processors[name] = block
 		end
 
-		@data_processor_groups = []
-		dsl_method :data_processor do |name|
-			dpg = DataProcessorGroup.new(@data_type_name, @name, name, @builder_tag_set)
-			@data_processor_groups << dpg
-			dpg
+		@classifiers = []
+		dsl_method :classifier do |name|
+			Classifier.new(@data_type_name, @name, name, @builder_tag_set).tap do |classifier| 
+				@classifiers << classifier
+			end
 		end
 
 		dsl &block
 
 		# link named processors
-		@data_processor_groups.each do |data_processor_group|
-			processor = data_processor_group.processor
-			data_processor_group.processor = @processors.fetch(processor) if not processor.is_a? Proc
+		@classifiers.each do |classifier|
+			processor = classifier.processor
+			classifier.processor = @processors.fetch(processor) unless processor.is_a? Proc
 		end
 	end
 
 	attr_reader :name
 	attr_reader :data_type_name
 
-	def data_processors(raw_data_key)
-		@data_processor_groups.inject([]) do |data_processors, data_processor_group|
-			data_processors.concat(data_processor_group.data_processors(raw_data_key))
+	def classify(raw_data_key)
+		@classifiers.inject([]) do |data_processors, classifier|
+			data_processors.concat(classifier.classify(raw_data_key))
 		end
 	end
 end
