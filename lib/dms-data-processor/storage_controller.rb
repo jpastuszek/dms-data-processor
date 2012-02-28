@@ -161,8 +161,8 @@ class DataSource
 		@data_processor.data_set(time_from, time_to, @storage)
 	end
 
-	def data_type
-		@data_processor.data_type
+	def data_type_name
+		@data_processor.data_type_name
 	end
 
 	def tag_set

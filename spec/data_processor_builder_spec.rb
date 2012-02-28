@@ -19,82 +19,12 @@ describe DataProcessorBuilder do
 	subject do
 		Logging.logger.root.level = :fatal
 
-		DataProcessorBuilder.new(:system_cpu_usage, 'CPU usage') do
-			tag 'hello'
-			tag 'world'
-
-			data_processor(:cpu).select do
-				key 'system/CPU usage/CPU[user, system, stolen]'
-			end.group do |raw_data_key|
-				by raw_data_key.location
-				by raw_data_key.path.last
-			end.need do
-				key 'system/CPU usage/CPU[user]'
-				key 'system/CPU usage/CPU[system]'
-			end.each_group do |group, raw_data_keys|
-				tag "location:#{group.first}"
-				tag "system:CPU usage:CPU:#{group.last}"
-
-				tag "virtual" if raw_data_keys.any? do |raw_data_key|
-					raw_data_key.component == 'stolen'
-				end
-			end.process_with(:cpu_time_delta)
-
-			data_processor(:total).select do
-				key 'system/CPU usage/total[user, system, stolen]'
-			end.group do |raw_data_key|
-				by raw_data_key.location
-			end.need do
-				key 'system/CPU usage/total[user]'
-				key 'system/CPU usage/total[system]'
-			end.each_group do |group, raw_data_keys|
-				tag "location:#{group.first}"
-				tag "system:CPU usage:total"
-
-				tag "virtual" if raw_data_keys.any? do |raw_data_key|
-					raw_data_key.component == 'stolen'
-				end
-			end.process_with :cpu_time_delta
-
-			data_processor(:count).select do
-				key 'system/CPU usage/CPU'
-			end.group do |raw_data_key|
-				by raw_data_key.location
-			end.need do
-				key 'system/CPU usage/CPU'
-			end.each_group do |group, raw_data_keys|
-				tag "location:#{group.first}"
-				tag "system:CPU count"
-			end.process_with do |time_from, time_to, data_sources|
-				collect data_sources.keys.length
-			end
-
-			processor(:cpu_time_delta) do |time_from, time_to, data_sources|
-				data_sources.each_pair do |path, location_node|
-					location_node.each_pair do |location, component_node|
-						component_node do |component, raw_data|
-							rd = raw_data.range(time_from, time_to)
-
-							old = nil
-							rd.each do |new|
-								if old
-									time_delta = (new.time - old.time).to_f
-									value_delta = (new.value - old.value).to_f / 1000
-
-									collect name, new.time - (time_delta / 2),  value_delta / time_delta
-								end
-								old = new
-							end
-						end
-					end
-				end
-			end
-		end
+		eval File.read(File.expand_path(File.dirname(__FILE__) + '/data_processor_builder_test1.rb'))
 	end
 
 	it 'should have name and data type' do
-		subject.name.should == :system_cpu_usage
-		subject.data_type.should == 'CPU usage'
+		subject.name.should == 'system CPU usage'
+		subject.data_type_name.should == 'CPU usage'
 	end
 
 	it 'should provide data processors when raw data under new keys become available' do
@@ -131,18 +61,18 @@ describe DataProcessorBuilder do
 			subject.data_processors(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).shift
 		end
 
-		it 'should have data type' do
-			data_processor.data_type.should == 'CPU usage'
+		it 'should have data type name' do
+			data_processor.data_type_name.should == 'CPU usage'
 		end
 
 		it 'should have ID based on source of it' do
-			subject.data_processors(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).first.id.should == 'system_cpu_usage:count:nina'
-			subject.data_processors(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).first.id.should == 'system_cpu_usage:count:magi'
-			subject.data_processors(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']).first.id.should == 'system_cpu_usage:cpu:magi:1'
-			subject.data_processors(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']).first.id.should == 'system_cpu_usage:cpu:nina:0'
-			subject.data_processors(RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']).first.id.should == 'system_cpu_usage:cpu:nina:0'
+			subject.data_processors(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).first.id.should == 'system CPU usage:count:nina'
+			subject.data_processors(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).first.id.should == 'system CPU usage:count:magi'
+			subject.data_processors(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']).first.id.should == 'system CPU usage:cpu:magi:1'
+			subject.data_processors(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']).first.id.should == 'system CPU usage:cpu:nina:0'
+			subject.data_processors(RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']).first.id.should == 'system CPU usage:cpu:nina:0'
 			subject.data_processors(RawDataKey['magi', 'system/CPU usage/total', 'user']).should be_empty
-			subject.data_processors(RawDataKey['magi', 'system/CPU usage/total', 'system']).first.id.should == 'system_cpu_usage:total:magi'
+			subject.data_processors(RawDataKey['magi', 'system/CPU usage/total', 'system']).first.id.should == 'system CPU usage:total:magi'
 		end
 
 		it 'should have a tag set based on available raw data' do
