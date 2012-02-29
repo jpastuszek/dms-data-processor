@@ -149,6 +149,10 @@ class RawDatum
 
 	attr_reader :time_stamp
 	attr_reader :value
+
+	def to_s
+		"RawDatum[#{@time_stamp}: #{@value}]"
+	end
 end
 
 class DataSource

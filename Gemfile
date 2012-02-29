@@ -2,6 +2,7 @@ source "http://rubygems.org"
 
 #gem "dms-core", :git => "git@github.com:jpastuszek/dms-core.git"
 gem "dms-core", :path => "../dms-core"
+gem "cli", "~> 1.1.1"
 
 # Add dependencies to develop your gem here.
 # Include everything needed to run rake, tests, features, etc.

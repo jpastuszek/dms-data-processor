@@ -1,0 +1,92 @@
+#!/usr/bin/env ruby
+# Copyright (c) 2012 Jakub Pastuszek
+#
+# This file is part of Distributed Monitoring System.
+#
+# Distributed Monitoring System is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Distributed Monitoring System is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
+
+$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
+
+require 'cli'
+require 'pathname'
+require 'dms-data-processor'
+
+VERSION = (Pathname.new(__FILE__).dirname + '../VERSION').read
+
+settings = CLI.new do
+	description "DMS data storage and processing daemon"
+	version VERSION
+	switch :debug,
+		short: :d,
+		description: 'enable debugging'
+	options :module_dir,
+		short: :m,
+		cast: Pathname,
+		description: 'path to directory from which data processor modules are loaded',
+		default: Pathname.new(__FILE__).dirname + '..' + 'module.d'
+	option :bind_address,
+		short: :b, 
+		description: 'ZeroMQ bind adderss for RawDataPoints collection', 
+		default: 'tcp://127.0.0.1:12100'
+	option :linger_time,
+		short: :L,
+		cast: Integer,
+		description: 'how many seconds to wait for outstanding messages to be sent before exiting',
+		default: 10
+end.parse! do |settings|
+	settings.module_dir.each do |m|
+		fail "module directory does not exist: #{m}" unless m.directory?
+	end
+
+	settings.module_dir = settings.module_dir.map{|m| m.realpath}
+end
+
+Logging.logger.root.level = :debug if settings.debug
+
+logging_class_name 'DMSPoller'
+log.info "Starting DMS Data Processor version #{VERSION} (LibZMQ version #{ZeroMQ.lib_version}, ffi-ruby version #{ZeroMQ.binding_version}); pid #{Process.pid}"
+
+
+ZeroMQ.new do |zmq|
+	zmq.pull_bind(settings.bind_address) do |pull|
+		storage_controller = StorageController.new(MemoryStorage.new(10000))
+
+		data_processor_modules = DataProcessorModules.new
+
+		data_processor_builders = []
+		settings.module_dir.each do |module_dir|
+			data_processor_modules.load_directory(module_dir).each do |data_processor_module|
+				data_processor_builders.concat data_processor_module.data_processor_builders
+			end
+		end
+
+		data_processor_builders.each do |data_processor_builder|
+			storage_controller << data_processor_builder
+		end
+
+		loop do
+			message = pull.recv
+			if message.class != RawDataPoint
+				log.warn "received message of type: #{message.class.name}, expected RawDataPoint"
+				next
+			end
+
+			key = RawDataKey[message.location, message.path, message.component]
+			value = RawDatum[message.time_stamp, message.value]
+			log.debug "storing #{key} #{value}"
+			storage_controller.store(key, value)
+		end
+	end
+end
+
