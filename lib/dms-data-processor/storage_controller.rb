@@ -190,6 +190,10 @@ class DataSource
 		@data_processor.hash / 2 + @storage.hash / 2
 	end
 
+	def to_s
+		"DataSource[#{@data_processor.data_type_name}]:<#{@data_processor.tag_set.to_s}>"
+	end
+
 	def inspect
 		"#<DataSource:#{hash}>"
 	end

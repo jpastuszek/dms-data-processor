@@ -37,8 +37,12 @@ settings = CLI.new do
 		default: Pathname.new(__FILE__).dirname + '..' + 'module.d'
 	option :bind_address,
 		short: :b, 
-		description: 'ZeroMQ bind adderss for RawDataPoints collection', 
+		description: 'ZeroMQ bind adderss for poller data collection', 
 		default: 'tcp://127.0.0.1:12100'
+	option :query_interface_bind_address,
+		short: :q, 
+		description: 'ZeroMQ bind adderss for DataSetQuery request and DataSets response socket (useful for testing)', 
+		default: 'ipc:///tmp/dms-data-processor-query'
 	option :linger_time,
 		short: :L,
 		cast: Integer,
@@ -57,35 +61,71 @@ Logging.logger.root.level = :debug if settings.debug
 logging_class_name 'DMSPoller'
 log.info "Starting DMS Data Processor version #{VERSION} (LibZMQ version #{ZeroMQ.lib_version}, ffi-ruby version #{ZeroMQ.binding_version}); pid #{Process.pid}"
 
+storage_controller = StorageController.new(MemoryStorage.new(10000))
+
+data_processor_modules = DataProcessorModules.new
+
+data_processor_builders = []
+settings.module_dir.each do |module_dir|
+	data_processor_modules.load_directory(module_dir).each do |data_processor_module|
+		data_processor_builders.concat data_processor_module.data_processor_builders
+	end
+end
+
+data_processor_builders.each do |data_processor_builder|
+	storage_controller << data_processor_builder
+end
 
 ZeroMQ.new do |zmq|
-	zmq.pull_bind(settings.bind_address) do |pull|
-		storage_controller = StorageController.new(MemoryStorage.new(10000))
+	poller = ZeroMQ::Poller.new
+	zmq.rep_bind(settings.query_interface_bind_address) do |query_rep|
+		zmq.pull_bind(settings.bind_address) do |raw_data_point_pull|
+			poller.register(query_rep)
+			poller.register(raw_data_point_pull)
 
-		data_processor_modules = DataProcessorModules.new
+			loop do
+				poller.poll do |readers, writters|
+					readers.each do |reader|
+						case reader
+						when query_rep
+							message = query_rep.recv
+							if message.class != DataSetQuery
+								log.warn "received message of type: #{message.class.name}, expected DataSetQuery"
+								next
+							end
 
-		data_processor_builders = []
-		settings.module_dir.each do |module_dir|
-			data_processor_modules.load_directory(module_dir).each do |data_processor_module|
-				data_processor_builders.concat data_processor_module.data_processor_builders
+							log.debug "querying for: #{message}"
+							storage_controller[message.tag_expression].each do |data_source|
+								log.debug "got data source: #{data_source}"
+
+								data_set = DataSet.new(data_source.data_type_name, data_source.tag_set, message.time_from, message.time_to) do
+									data_source.data_set(message.time_from, message.time_to).each_pair do |component, data|
+										data.each do |time, value|
+											component_data component, time, value
+										end
+									end
+								end
+
+								log.debug "sending data set: #{data_set}"
+								query_rep.send(data_set, topic: message.query_id, sendmore: true)
+							end
+
+							query_rep.send NoResults.new
+						when raw_data_point_pull
+							message = raw_data_point_pull.recv
+							if message.class != RawDataPoint
+								log.warn "received message of type: #{message.class.name}, expected RawDataPoint"
+								next
+							end
+
+							key = RawDataKey[message.location, message.path, message.component]
+							value = RawDatum[message.time_stamp, message.value]
+							log.debug "storing #{key} #{value}"
+							storage_controller.store(key, value)
+						end
+					end
+				end
 			end
-		end
-
-		data_processor_builders.each do |data_processor_builder|
-			storage_controller << data_processor_builder
-		end
-
-		loop do
-			message = pull.recv
-			if message.class != RawDataPoint
-				log.warn "received message of type: #{message.class.name}, expected RawDataPoint"
-				next
-			end
-
-			key = RawDataKey[message.location, message.path, message.component]
-			value = RawDatum[message.time_stamp, message.value]
-			log.debug "storing #{key} #{value}"
-			storage_controller.store(key, value)
 		end
 	end
 end

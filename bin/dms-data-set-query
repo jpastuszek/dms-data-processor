@@ -1,0 +1,69 @@
+#!/usr/bin/env ruby
+# Copyright (c) 2012 Jakub Pastuszek
+#
+# This file is part of Distributed Monitoring System.
+#
+# Distributed Monitoring System is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Distributed Monitoring System is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
+
+$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
+
+require 'cli'
+require 'pathname'
+require 'dms-core'
+
+VERSION = (Pathname.new(__FILE__).dirname + '../VERSION').read
+
+settings = CLI.new do
+	description "DMS data query tool"
+	version VERSION
+	switch :debug,
+		short: :d,
+		description: 'enable debugging'
+	option :query_interface_address,
+		short: :q, 
+		description: 'Data processor ZeroMQ query interface adderss', 
+		default: 'ipc:///tmp/dms-data-processor-query'
+	option :query_id,
+		short: :i,
+		description: 'query ID string used to find the response on PUB/SUB sockets',
+		default: rand(0...999999)
+	option :time_from,
+		short: :f,
+		cast: lambda{|s| Time.parse(s + ' UTC')},
+		description: 'time string representing how recent the data should be',
+		default: Time.now.to_s
+	option :time_to,
+		short: :t,
+		cast: lambda{|s| Time.parse(s + ' UTC')},
+		description: 'time string representing how old the data should be',
+		default: (Time.now - 60*60).to_s
+	option :granularity,
+		short: :g,
+		cast: Float,
+		description: 'minimal time differenc between values in seconds',
+		default: 1.0
+	arguments :tag_expression
+end.parse!
+
+ZeroMQ.new do |zmq|
+	zmq.req_connect(settings.query_interface_address) do |query|
+		dsq = DataSetQuery.new(settings.query_id, settings.tag_expression.join(', '), settings.time_from, settings.time_to, settings.granularity)
+		log.info "sending query: #{dsq}"
+		query.send dsq
+		begin
+			log.info "received: #{query.recv}"
+		end while query.more?
+	end
+end
+
