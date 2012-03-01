@@ -30,8 +30,8 @@ settings = CLI.new do
 	switch :debug,
 		short: :d,
 		description: 'enable debugging'
-	option :query_interface_address,
-		short: :q, 
+	option :data_processor_address,
+		short: :p, 
 		description: 'Data processor ZeroMQ query interface adderss', 
 		default: 'ipc:///tmp/dms-data-processor-query'
 	option :query_id,
@@ -57,7 +57,7 @@ settings = CLI.new do
 end.parse!
 
 ZeroMQ.new do |zmq|
-	zmq.req_connect(settings.query_interface_address) do |query|
+	zmq.req_connect(settings.data_processor_address) do |query|
 		dsq = DataSetQuery.new(settings.query_id, settings.tag_expression.join(', '), settings.time_from, settings.time_to, settings.granularity)
 		log.info "sending query: #{dsq}"
 		query.send dsq
