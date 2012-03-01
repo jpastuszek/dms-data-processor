@@ -85,58 +85,69 @@ queries_left = settings.query_count
 log.warn "exiting after #{queries_left} queries" if queries_left
 
 ZeroMQ.new do |zmq|
-	poller = ZeroMQ::Poller.new
-	zmq.rep_bind(settings.query_bind_address) do |query_rep|
-		zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
-			poller.register(query_rep)
-			poller.register(raw_data_point_pull)
+	begin
+		poller = ZeroMQ::Poller.new
+		zmq.rep_bind(settings.query_bind_address) do |query_rep|
+			zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
+				poller.register(query_rep)
+				poller.register(raw_data_point_pull)
 
-			loop do
-				poller.poll do |readers, writters|
-					readers.each do |reader|
-						case reader
-						when query_rep
-							message = query_rep.recv
-							if message.class != DataSetQuery
-								log.warn "received message of type: #{message.class.name}, expected DataSetQuery"
-								next
-							end
-
-							log.debug "querying for: #{message}"
-							data_sets = data_set_query_controller.query(message)
-							if data_sets.empty?
-								log.debug "no results"
-								query_rep.send NoResults.new
-							else
-								data_sets.each do |data_set|
-									log.debug "sending data set: #{data_set}"
-									query_rep.send(data_set, topic: message.query_id, sendmore: data_set != data_sets.last)
+				log.info "DMS Data Processor ready"
+				loop do
+					poller.poll do |readers, writters|
+						readers.each do |reader|
+							case reader
+							when query_rep
+								message = query_rep.recv
+								if message.class != DataSetQuery
+									log.warn "received message of type: #{message.class.name}, expected DataSetQuery"
+									next
 								end
-							end
 
-							if queries_left
-								queries_left -= 1
-								if queries_left <= 0
-									log.info "processed #{settings.query_count} queries, exiting..."
-									exit 0
+								log.debug "querying for: #{message}"
+								data_sets = data_set_query_controller.query(message)
+								if data_sets.empty?
+									log.debug "no results"
+									query_rep.send NoResults.new
+								else
+									data_sets.each do |data_set|
+										log.debug "sending data set: #{data_set}"
+										query_rep.send(data_set, topic: message.query_id, sendmore: data_set != data_sets.last)
+									end
 								end
-							end
-						when raw_data_point_pull
-							message = raw_data_point_pull.recv
-							if message.class != RawDataPoint
-								log.warn "received message of type: #{message.class.name}, expected RawDataPoint"
-								next
-							end
 
-							key = RawDataKey[message.location, message.path, message.component]
-							value = RawDatum[message.time_stamp, message.value]
-							log.debug "storing #{key} #{value}"
-							storage_controller.store(key, value)
+								if queries_left
+									queries_left -= 1
+									if queries_left <= 0
+										log.info "processed #{settings.query_count} queries"
+										exit 0
+									end
+								end
+							when raw_data_point_pull
+								message = raw_data_point_pull.recv
+								if message.class != RawDataPoint
+									log.warn "received message of type: #{message.class.name}, expected RawDataPoint"
+									next
+								end
+
+								key = RawDataKey[message.location, message.path, message.component]
+								value = RawDatum[message.time_stamp, message.value]
+								log.debug "storing #{key} #{value}"
+								storage_controller.store(key, value)
+							end
 						end
 					end
 				end
 			end
 		end
+	rescue Interrupt
+		log.info "interrupted"
+	rescue SystemExit
+	ensure
+		log.info "shutting down..."
 	end
+	log.info "waiting for messages to be sent..."
 end
+
+log.info "DMS Data Processor done"
 

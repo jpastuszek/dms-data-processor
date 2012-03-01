@@ -101,10 +101,26 @@ Then /I should get NoResults response/ do
 	@query_resoults.first.should be_a NoResults
 end
 
-And /^I will terminate the program and print its output$/ do
-	until @program_out_queue.empty?
-		puts @program_out_queue.pop
+And /it should exit with (.*)/ do |exitstatus|
+	Timeout.timeout(2) do 
+		Process.waitpid(@program_pid)
+		@program_thread.join
 	end
+
+	$?.exitstatus.should == exitstatus.to_i
+	
+	@program_log = []
+	until @program_out_queue.empty?
+		l = @program_out_queue.pop
+		@program_log << l
+		puts l
+	end
+	@program_log = @program_log.join
 end
 
+Then /log output should include following entries:/ do |log_entries|
+	log_entries.raw.flatten.each do |entry|
+		@program_log.should include(entry)
+	end
+end
 

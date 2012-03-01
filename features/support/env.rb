@@ -61,7 +61,8 @@ def spawn(program, args = '')
 		(0..3).to_a.any? do
 			Process.kill('TERM', pid)
 			Process.waitpid(pid, Process::WNOHANG).tap{sleep 1}
-		end or Process.kill('KILL', pid)
+		end or Process.kill('KILL', pid) rescue Errno::ESRCH
+		thread.join
 	end
 
 	return pid, thread, out_queue

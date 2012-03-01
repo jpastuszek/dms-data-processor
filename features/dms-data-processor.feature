@@ -76,5 +76,11 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| query_id	| tag_expression	| time_from	| time_to	| granularity	|
 			| 1			| bogous			| 1			| 0			| 1				|
 		Then I should get NoResults response
-		And I will terminate the program and print its output
+		And it should exit with 0
+		And log output should include following entries:
+			| Starting DMS Data Processor version |
+			| DMS Data Processor ready |
+			| exiting after 3 queries |
+			| DMS Data Processor done |
+
 
