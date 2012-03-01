@@ -24,8 +24,8 @@ class DataSetQueryController
 		data_sets = []
 		@storage_controller[data_set_query.tag_expression].each do |data_source|
 			have_data = false
-			data_set = DataSet.new(data_source.data_type_name, data_source.tag_set, data_set_query.time_from, data_set_query.time_to) do
-				data_source.data_set(data_set_query.time_from, data_set_query.time_to).each_pair do |component, data|
+			data_set = DataSet.new(data_source.data_type_name, data_source.tag_set, data_set_query.time_from, data_set_query.time_span) do
+				data_source.data_set(data_set_query.time_from, data_set_query.time_span).each_pair do |component, data|
 					data.each do |time, value|
 						component_data component, time, value
 						have_data = true

@@ -11,7 +11,7 @@ DataProcessorBuilder.new('system CPU count', 'count') do
 	end.each_group do |group, raw_data_keys|
 		tag "location:#{group.first}"
 		tag "system:CPU count"
-	end.process_with do |time_from, time_to, data_sources|
+	end.process_with do |time_from, time_span, data_sources|
 		collect 'count', time_from, data_sources.length
 	end
 end

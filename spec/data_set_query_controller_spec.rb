@@ -56,7 +56,7 @@ describe DataSetQueryController do
 
 	describe '#query' do
 		it 'should return array of DataSet objects matching tag expression and filled with time range of data' do
-			data_sets = subject.query(DataSetQuery.new(1, 'magi', 6, 2, 1))
+			data_sets = subject.query(DataSetQuery.new(1, 'magi', 6, 4, 1))
 			data_sets.should have(3).data_sets
 
 			data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU count, world'}.shift
@@ -76,7 +76,7 @@ describe DataSetQueryController do
 		end
 
 		it 'should not return DataSet objects that time range does not match any data' do
-			data_sets = subject.query(DataSetQuery.new(1, 'magi', 10, 20, 1))
+			data_sets = subject.query(DataSetQuery.new(1, 'magi', 20, 4, 1))
 			data_sets.should have(1).data_set
 
 			data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU count, world'}.shift
@@ -86,7 +86,7 @@ describe DataSetQueryController do
 		end
 
 		it 'should return empty array if there was no match' do
-			data_sets = subject.query(DataSetQuery.new(1, 'bogous', 6, 2, 1))
+			data_sets = subject.query(DataSetQuery.new(1, 'bogous', 6, 4, 1))
 			data_sets.should be_empty
 		end
 	end

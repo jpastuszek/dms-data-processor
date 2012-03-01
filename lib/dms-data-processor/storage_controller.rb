@@ -161,8 +161,8 @@ class DataSource
 		@storage = storage
 	end
 
-	def data_set(time_from, time_to)
-		@data_processor.data_set(time_from, time_to, @storage)
+	def data_set(time_from, time_span)
+		@data_processor.data_set(time_from, time_span, @storage)
 	end
 
 	def data_type_name

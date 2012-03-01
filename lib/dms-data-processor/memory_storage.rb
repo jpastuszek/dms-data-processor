@@ -45,9 +45,9 @@ class MemoryStorage
 			end
 		end
 
-		def range(time_from, time_to)
+		def range(time_from, time_span)
 			select do |raw_datum|
-				raw_datum.time_stamp <= time_from and raw_datum.time_stamp >= time_to
+				raw_datum.time_stamp <= time_from and raw_datum.time_stamp.to_f >= (time_from.to_f - time_span.to_f)
 			end
 		end
 	end

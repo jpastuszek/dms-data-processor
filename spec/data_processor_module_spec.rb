@@ -43,9 +43,9 @@ describe DataProcessorModule do
 						tag "virtual" if raw_data_keys.any? do |raw_data_key|
 							raw_data_key.component == 'stolen'
 						end
-					end.process_with do |time_from, time_to, data_sources|
+					end.process_with do |time_from, time_span, data_sources|
 						data_sources.each do |raw_data_key, raw_data|
-							rd = raw_data.range(time_from, time_to)
+							rd = raw_data.range(time_from, time_span)
 
 							old = nil
 							rd.each do |new|
@@ -113,9 +113,9 @@ data_processor('CPU usage') do
 		tag "virtual" if raw_data_keys.any? do |raw_data_key|
 			raw_data_key.component == 'stolen'
 		end
-	end.process_with do |time_from, time_to, data_sources|
+	end.process_with do |time_from, time_span, data_sources|
 		data_sources.each do |raw_data_key, raw_data|
-			rd = raw_data.range(time_from, time_to)
+			rd = raw_data.range(time_from, time_span)
 
 			old = nil
 			rd.each do |new|

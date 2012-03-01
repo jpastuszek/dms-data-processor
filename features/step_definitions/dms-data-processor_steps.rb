@@ -74,7 +74,7 @@ When /I send following DataSetQueries to (.*):/ do |address, data_set_queries|
 		ZeroMQ.new do |zmq|
 			zmq.req_connect(address) do |req|
 				 data_set_queries.hashes.each do |h|
-					req.send DataSetQuery.new(h[:query_id], h[:tag_expression], h[:time_from].to_i, h[:time_to].to_i, h[:granularity])
+					req.send DataSetQuery.new(h[:query_id], h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity])
 					@query_resoults.concat req.recv_all
 				end
 			end
@@ -89,7 +89,7 @@ Then /I should get following DataSets:/ do |data_sets|
 		result.type_name.should == h[:type_name]
 		result.tag_set.to_s.should == h[:tag_set]
 		result.time_from.to_i.should == h[:time_from].to_i
-		result.time_to.to_i.should == h[:time_to].to_i
+		result.time_span.to_f.should == h[:time_span].to_f
 		h[:components].split(/, */).zip(h[:datum_count].split(/, */)).each do |component, count|
 			result.component_data[component].length.should == count.to_i
 		end

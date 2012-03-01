@@ -19,9 +19,9 @@ require 'set'
 
 class DataProcessor
 	class Collector
-		def initialize(time_from, time_to, data_sources, &processor)
+		def initialize(time_from, time_span, data_sources, &processor)
 			@data = {}
-			instance_exec time_from, time_to, data_sources, &processor
+			instance_exec time_from, time_span, data_sources, &processor
 		end
 
 		attr_reader :data
@@ -46,10 +46,10 @@ class DataProcessor
 	attr_reader :tag_set
 	attr_reader :raw_data_key_set
 
-	def data_set(time_from, time_to, storage)
+	def data_set(time_from, time_span, storage)
 		Collector.new(
 			time_from, 
-			time_to, 
+			time_span, 
 			@raw_data_key_set.map{|raw_data_key| [raw_data_key, storage.fetch(raw_data_key)]},
 			&@processor
 		).data

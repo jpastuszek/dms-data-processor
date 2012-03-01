@@ -225,7 +225,7 @@ describe StorageController do
 		end
 
 		it 'should provide data for each data set component from time range' do
-			data = subject['total'].first.data_set(Time.at(5), Time.at(0))
+			data = subject['total'].first.data_set(Time.at(5), 5)
 			data.should include('user')
 			data.should include('system')
 

@@ -48,7 +48,7 @@ shared_examples_for 'storage' do
 		end
 
 		it 'should return data that can be asked for inclusive time range of data' do
-			subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle']).range(Time.at(1), Time.at(0)) == [1, 0]
+			subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle']).range(Time.at(1), 1) == [1, 0]
 		end
 	end
 end

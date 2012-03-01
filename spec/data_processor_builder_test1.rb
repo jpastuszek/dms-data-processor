@@ -35,9 +35,9 @@ DataProcessorBuilder.new('system CPU usage', 'CPU usage') do
 		end
 	end.process_with :cpu_time_delta
 
-	processor(:cpu_time_delta) do |time_from, time_to, data_sources|
+	processor(:cpu_time_delta) do |time_from, time_span, data_sources|
 		data_sources.each do |raw_data_key, raw_data|
-			rd = raw_data.range(time_from, time_to)
+			rd = raw_data.range(time_from, time_span)
 
 			old = nil
 			rd.each do |new|

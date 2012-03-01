@@ -23,9 +23,9 @@ Feature: Storage and processing of RawDataPoints to DataSets
 				tag "virtual" if raw_data_keys.any? do |raw_data_key|
 					raw_data_key.component == 'stolen'
 				end
-			end.process_with do |time_from, time_to, data_sources|
+			end.process_with do |time_from, time_span, data_sources|
 				data_sources.each do |raw_data_key, raw_data|
-					rd = raw_data.range(time_from, time_to)
+					rd = raw_data.range(time_from, time_span)
 
 					old = nil
 					rd.each do |new|
@@ -60,21 +60,21 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
 			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
 		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
-			| query_id	| tag_expression	| time_from	| time_to	| granularity	|
-			| 1			| magi				| 1			| 0			| 1				|
+			| query_id	| tag_expression	| time_from	| time_span	| granularity	|
+			| 1			| magi				| 1			| 1			| 1				|
 		Then I should get following DataSets:
-			| type_name | tag_set												| time_from | time_to	| components	| datum_count	|
-			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 0			| user, system	| 1, 1			|
-			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:1	| 1			| 0			| user, system	| 1, 1			|
+			| type_name | tag_set												| time_from | time_span	| components	| datum_count	|
+			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 1			| user, system	| 1, 1			|
+			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:1	| 1			| 1			| user, system	| 1, 1			|
 		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
-			| query_id	| tag_expression	| time_from	| time_to	| granularity	|
-			| 1			| CPU:0				| 1			| 0			| 1				|
+			| query_id	| tag_expression	| time_from	| time_span	| granularity	|
+			| 1			| CPU:0				| 1			| 1			| 1				|
 		Then I should get following DataSets:
-			| type_name | tag_set												| time_from | time_to	| components	| datum_count	|
-			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 0			| user, system	| 1, 1			|
+			| type_name | tag_set												| time_from | time_span	| components	| datum_count	|
+			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 1			| user, system	| 1, 1			|
 		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
-			| query_id	| tag_expression	| time_from	| time_to	| granularity	|
-			| 1			| bogous			| 1			| 0			| 1				|
+			| query_id	| tag_expression	| time_from	| time_span	| granularity	|
+			| 1			| bogous			| 1			| 1			| 1				|
 		Then I should get NoResults response
 		Then it should exit with 0
 		And log output should include following entries:

@@ -43,11 +43,11 @@ settings = CLI.new do
 		cast: lambda{|s| Time.parse(s + ' UTC')},
 		description: 'time string representing how recent the data should be',
 		default: Time.now.to_s
-	option :time_to,
+	option :time_span,
 		short: :t,
-		cast: lambda{|s| Time.parse(s + ' UTC')},
-		description: 'time string representing how old the data should be',
-		default: (Time.now - 60*60).to_s
+		cast: Float,
+		description: 'for how many seconds from time-form should the data be going back to',
+		default: 60*60
 	option :granularity,
 		short: :g,
 		cast: Float,
@@ -58,7 +58,7 @@ end.parse!
 
 ZeroMQ.new do |zmq|
 	zmq.req_connect(settings.data_processor_address) do |query|
-		dsq = DataSetQuery.new(settings.query_id, settings.tag_expression.join(', '), settings.time_from, settings.time_to, settings.granularity)
+		dsq = DataSetQuery.new(settings.query_id, settings.tag_expression.join(', '), settings.time_from, settings.time_span, settings.granularity)
 		log.info "sending query: #{dsq}"
 		query.send dsq
 		begin
