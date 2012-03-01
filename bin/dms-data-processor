@@ -35,6 +35,10 @@ settings = CLI.new do
 		cast: Pathname,
 		description: 'path to directory from which data processor modules are loaded',
 		default: Pathname.new(__FILE__).dirname + '..' + 'module.d'
+	option :console_endpoint_address,
+		short: :e, 
+		description: 'ZeroMQ adderss of console endpoint', 
+		default: 'tcp://127.0.0.1:12000'
 	option :data_bind_address,
 		short: :b, 
 		description: 'ZeroMQ bind adderss for poller data collection', 
@@ -91,53 +95,73 @@ log.warn "exiting after #{queries_left} queries" if queries_left
 ZeroMQ.new do |zmq|
 	begin
 		poller = ZeroMQ::Poller.new
-		zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
-			zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
-				poller.register(query_rep)
-				poller.register(raw_data_point_pull)
+		zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
+			zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
+				zmq.sub_connect(settings.console_endpoint_address) do |query_sub|
+					zmq.pub_connect(settings.console_endpoint_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_pub|
+						poller.register(raw_data_point_pull)
+						poller.register(query_sub)
+						poller.register(query_rep)
 
-				log.info "DMS Data Processor ready"
-				loop do
-					poller.poll do |readers, writters|
-						readers.each do |reader|
-							case reader
-							when query_rep
-								message = query_rep.recv
-								if message.class != DataSetQuery
-									log.warn "received message of type: #{message.class.name}, expected DataSetQuery"
-									next
-								end
+						log.info "DMS Data Processor ready"
+						loop do
+							poller.poll do |readers, writters|
+								readers.each do |reader|
+									case reader
+									when query_sub
+										message = query_rep.recv
+										if message.class != DataSetQuery
+											log.warn "received message of type: #{message.class.name}, expected DataSetQuery"
+											next
+										end
 
-								log.debug "querying for: #{message}"
-								data_sets = data_set_query_controller.query(message)
-								if data_sets.empty?
-									log.debug "no results"
-									query_rep.send NoResults.new
-								else
-									data_sets.each do |data_set|
-										log.debug "sending data set: #{data_set}"
-										query_rep.send(data_set, topic: message.query_id, more: data_set != data_sets.last)
+										log.debug "querying for: #{message}"
+										data_sets = data_set_query_controller.query(message)
+										unless data_sets.empty?
+											data_sets.each do |data_set|
+												log.debug "sending data set: #{data_set}"
+												query_pub.send(data_set, topic: message.query_id, more: data_set != data_sets.last)
+											end
+										end
+									when query_rep
+										message = query_rep.recv
+										if message.class != DataSetQuery
+											log.warn "received message of type: #{message.class.name}, expected DataSetQuery"
+											next
+										end
+
+										log.debug "querying for: #{message}"
+										data_sets = data_set_query_controller.query(message)
+										if data_sets.empty?
+											log.debug "no results"
+											query_rep.send NoResults.new
+										else
+											data_sets.each do |data_set|
+												log.debug "sending data set: #{data_set}"
+												query_rep.send(data_set, topic: message.query_id, more: data_set != data_sets.last)
+											end
+										end
+
+										if queries_left
+											queries_left -= 1
+											if queries_left <= 0
+												log.info "processed #{settings.query_count} queries"
+												exit 0
+											end
+										end
+									when raw_data_point_pull
+										message = raw_data_point_pull.recv
+										if message.class != RawDataPoint
+											log.warn "received message of type: #{message.class.name}, expected RawDataPoint"
+											next
+										end
+
+										key = RawDataKey[message.location, message.path, message.component]
+										value = RawDatum[message.time_stamp, message.value]
+										log.debug "storing #{key} #{value}"
+										storage_controller.store(key, value)
 									end
 								end
-
-								if queries_left
-									queries_left -= 1
-									if queries_left <= 0
-										log.info "processed #{settings.query_count} queries"
-										exit 0
-									end
-								end
-							when raw_data_point_pull
-								message = raw_data_point_pull.recv
-								if message.class != RawDataPoint
-									log.warn "received message of type: #{message.class.name}, expected RawDataPoint"
-									next
-								end
-
-								key = RawDataKey[message.location, message.path, message.component]
-								value = RawDatum[message.time_stamp, message.value]
-								log.debug "storing #{key} #{value}"
-								storage_controller.store(key, value)
 							end
 						end
 					end
