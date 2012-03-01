@@ -47,6 +47,10 @@ settings = CLI.new do
 		short: :c,
 		cast: Integer,
 		description: 'exit after replying to given number of queries (useful for testing)'
+	option :queue_query_reply_message_count,
+		cast: Integer,
+		description: 'queue up to specified number of reply messages in memory if receiver is not reading them',
+		default: '100'
 	option :linger_time,
 		short: :L,
 		cast: Integer,
@@ -87,7 +91,7 @@ log.warn "exiting after #{queries_left} queries" if queries_left
 ZeroMQ.new do |zmq|
 	begin
 		poller = ZeroMQ::Poller.new
-		zmq.rep_bind(settings.query_bind_address) do |query_rep|
+		zmq.rep_bind(settings.query_bind_address, settings.queue_query_reply_message_count, 0, 0, settings.linger_time) do |query_rep|
 			zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
 				poller.register(query_rep)
 				poller.register(raw_data_point_pull)
@@ -143,6 +147,8 @@ ZeroMQ.new do |zmq|
 	rescue Interrupt
 		log.info "interrupted"
 	rescue SystemExit
+	rescue => e
+		log.fatal "got error: #{e.class.name}: #{e.message}"
 	ensure
 		log.info "shutting down..."
 	end
