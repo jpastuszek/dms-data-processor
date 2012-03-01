@@ -91,7 +91,7 @@ log.warn "exiting after #{queries_left} queries" if queries_left
 ZeroMQ.new do |zmq|
 	begin
 		poller = ZeroMQ::Poller.new
-		zmq.rep_bind(settings.query_bind_address, settings.queue_query_reply_message_count, 0, 0, settings.linger_time) do |query_rep|
+		zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
 			zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
 				poller.register(query_rep)
 				poller.register(raw_data_point_pull)
@@ -116,7 +116,7 @@ ZeroMQ.new do |zmq|
 								else
 									data_sets.each do |data_set|
 										log.debug "sending data set: #{data_set}"
-										query_rep.send(data_set, topic: message.query_id, sendmore: data_set != data_sets.last)
+										query_rep.send(data_set, topic: message.query_id, more: data_set != data_sets.last)
 									end
 								end
 
