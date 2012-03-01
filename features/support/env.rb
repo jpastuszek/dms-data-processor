@@ -53,6 +53,7 @@ def spawn(program, args = '')
 
 	thread = Thread.new do
 		r.each_line do |line|
+			#puts line
 			out_queue << line
 		end
 	end

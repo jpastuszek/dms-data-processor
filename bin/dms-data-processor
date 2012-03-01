@@ -107,59 +107,51 @@ ZeroMQ.new do |zmq|
 						loop do
 							poller.poll do |readers, writters|
 								readers.each do |reader|
-									case reader
-									when query_sub
-										message = query_rep.recv
-										if message.class != DataSetQuery
-											log.warn "received message of type: #{message.class.name}, expected DataSetQuery"
-											next
-										end
+									begin
+										case reader
+										when query_sub
+											data_set_query = query_rep.recv(DataSetQuery)
 
-										log.debug "querying for: #{message}"
-										data_sets = data_set_query_controller.query(message)
-										unless data_sets.empty?
-											data_sets.each do |data_set|
-												log.debug "sending data set: #{data_set}"
-												query_pub.send(data_set, topic: message.query_id, more: data_set != data_sets.last)
+											log.debug "querying for: #{data_set_query}"
+											data_sets = data_set_query_controller.query(data_set_query)
+											unless data_sets.empty?
+												data_sets.each do |data_set|
+													log.debug "sending data set: #{data_set}"
+													query_pub.send(data_set, topic: data_set_query.query_id, more: data_set != data_sets.last)
+												end
 											end
-										end
-									when query_rep
-										message = query_rep.recv
-										if message.class != DataSetQuery
-											log.warn "received message of type: #{message.class.name}, expected DataSetQuery"
-											next
-										end
+										when query_rep
+											data_set_query = query_rep.recv(DataSetQuery)
 
-										log.debug "querying for: #{message}"
-										data_sets = data_set_query_controller.query(message)
-										if data_sets.empty?
-											log.debug "no results"
-											query_rep.send NoResults.new
-										else
-											data_sets.each do |data_set|
-												log.debug "sending data set: #{data_set}"
-												query_rep.send(data_set, topic: message.query_id, more: data_set != data_sets.last)
+											log.debug "querying for: #{data_set_query}"
+											data_sets = data_set_query_controller.query(data_set_query)
+											if data_sets.empty?
+												log.debug "no results"
+												query_rep.send NoResults.new
+											else
+												data_sets.each do |data_set|
+													log.debug "sending data set: #{data_set}"
+													query_rep.send(data_set, topic: data_set_query.query_id, more: data_set != data_sets.last)
+												end
 											end
-										end
 
-										if queries_left
-											queries_left -= 1
-											if queries_left <= 0
-												log.info "processed #{settings.query_count} queries"
-												exit 0
+											if queries_left
+												queries_left -= 1
+												if queries_left <= 0
+													log.info "processed #{settings.query_count} queries"
+													exit 0
+												end
 											end
-										end
-									when raw_data_point_pull
-										message = raw_data_point_pull.recv
-										if message.class != RawDataPoint
-											log.warn "received message of type: #{message.class.name}, expected RawDataPoint"
-											next
-										end
+										when raw_data_point_pull
+											raw_data_point = raw_data_point_pull.recv(RawDataPoint)
 
-										key = RawDataKey[message.location, message.path, message.component]
-										value = RawDatum[message.time_stamp, message.value]
-										log.debug "storing #{key} #{value}"
-										storage_controller.store(key, value)
+											key = RawDataKey[raw_data_point.location, raw_data_point.path, raw_data_point.component]
+											value = RawDatum[raw_data_point.time_stamp, raw_data_point.value]
+											log.debug "storing #{key} #{value}"
+											storage_controller.store(key, value)
+										end
+									rescue ZeroMQ::Receiver::UnexpectedMessageType => error
+										log.warn error.message
 									end
 								end
 							end
@@ -172,7 +164,7 @@ ZeroMQ.new do |zmq|
 		log.info "interrupted"
 	rescue SystemExit
 	rescue => e
-		log.fatal "got error: #{e.class.name}: #{e.message}"
+		log.fatal "got error: #{e.class.name}: #{e.message}: #{e.backtrace.join("\n")}"
 	ensure
 		log.info "shutting down..."
 	end
