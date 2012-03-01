@@ -54,34 +54,41 @@ describe DataSetQueryController do
 		data_set_query_controller = DataSetQueryController.new(storage_controller)
 	end
 
-	it '#query should return array of DataSet objects matching tag expression and filled with time range of data' do
-		data_sets = subject.query(DataSetQuery.new(1, 'magi', 6, 2, 1))
-		data_sets.should have(3).data_sets
+	describe '#query' do
+		it 'should return array of DataSet objects matching tag expression and filled with time range of data' do
+			data_sets = subject.query(DataSetQuery.new(1, 'magi', 6, 2, 1))
+			data_sets.should have(3).data_sets
 
-		data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU count, world'}.shift
-		data_set.type_name.should == 'count'
-		data_set.component_data['count'].should have(1).dataum
-		data_set.component_data['count'].first.last.should == 2
+			data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU count, world'}.shift
+			data_set.type_name.should == 'count'
+			data_set.component_data['count'].should have(1).dataum
+			data_set.component_data['count'].first.last.should == 2
 
-		data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU usage:CPU:0, world'}.shift
-		data_set.type_name.should == 'CPU usage'
-		data_set.component_data['user'].should have(4).dataum
-		data_set.component_data['system'].should have(4).dataum
+			data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU usage:CPU:0, world'}.shift
+			data_set.type_name.should == 'CPU usage'
+			data_set.component_data['user'].should have(4).dataum
+			data_set.component_data['system'].should have(4).dataum
 
-		data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU usage:CPU:1, world'}.shift
-		data_set.type_name.should == 'CPU usage'
-		data_set.component_data['user'].should have(4).dataum
-		data_set.component_data['system'].should have(4).dataum
-	end
+			data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU usage:CPU:1, world'}.shift
+			data_set.type_name.should == 'CPU usage'
+			data_set.component_data['user'].should have(4).dataum
+			data_set.component_data['system'].should have(4).dataum
+		end
 
-	it '#query should not return DataSet objects that time range does not match any data' do
-		data_sets = subject.query(DataSetQuery.new(1, 'magi', 10, 20, 1))
-		data_sets.should have(1).data_set
+		it 'should not return DataSet objects that time range does not match any data' do
+			data_sets = subject.query(DataSetQuery.new(1, 'magi', 10, 20, 1))
+			data_sets.should have(1).data_set
 
-		data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU count, world'}.shift
-		data_set.type_name.should == 'count'
-		data_set.component_data['count'].should have(1).dataum
-		data_set.component_data['count'].first.last.should == 2
+			data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU count, world'}.shift
+			data_set.type_name.should == 'count'
+			data_set.component_data['count'].should have(1).dataum
+			data_set.component_data['count'].first.last.should == 2
+		end
+
+		it 'should return empty array if there was no match' do
+			data_sets = subject.query(DataSetQuery.new(1, 'bogous', 6, 2, 1))
+			data_sets.should be_empty
+		end
 	end
 end
 
