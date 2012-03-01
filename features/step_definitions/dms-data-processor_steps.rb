@@ -48,7 +48,7 @@ Given /query bind address is (.*)/ do |address|
 	@program_args << ['--query-bind-address', address]
 end
 
-When /it is started for (.*) query/ do |query_count|
+When /it is started for (.*) quer/ do |query_count|
 	@program_args << ['--query-count', query_count.to_i]
 	@program_args = @program_args.join(' ')
 
@@ -94,6 +94,11 @@ Then /I should get following DataSets/ do |data_sets|
 			result.component_data[component].length.should == count.to_i
 		end
 	end
+end
+
+Then /I should get NoResults response/ do
+	@query_resoults.should have(1).response
+	@query_resoults.first.should be_a NoResults
 end
 
 And /^I will terminate the program and print its output$/ do
