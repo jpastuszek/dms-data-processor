@@ -49,7 +49,7 @@ Feature: Storage and processing of RawDataPoints to DataSets
 		And data bind address is ipc:///tmp/dms-data-processor-test-data
 		And query bind address is ipc:///tmp/dms-data-processor-test-query
 		And it is started for 3 queries
-		When I sent following RawDataPoints to ipc:///tmp/dms-data-processor-test-data
+		When I sent following RawDataPoints to ipc:///tmp/dms-data-processor-test-data:
 			| location	| path						| component | timestamp | value | 
 			| magi		| system/CPU usage/CPU/0	| user		|0			| 1		|
 			| magi		| system/CPU usage/CPU/0	| user		|1			| 2		|
@@ -59,24 +59,24 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| magi		| system/CPU usage/CPU/1	| user		|1			| 2		|
 			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
 			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
-		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query
+		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
 			| query_id	| tag_expression	| time_from	| time_to	| granularity	|
 			| 1			| magi				| 1			| 0			| 1				|
-		Then I should get following DataSets
+		Then I should get following DataSets:
 			| type_name | tag_set												| time_from | time_to	| components	| datum_count	|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 0			| user, system	| 1, 1			|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:1	| 1			| 0			| user, system	| 1, 1			|
-		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query
+		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
 			| query_id	| tag_expression	| time_from	| time_to	| granularity	|
 			| 1			| CPU:0				| 1			| 0			| 1				|
-		Then I should get following DataSets
+		Then I should get following DataSets:
 			| type_name | tag_set												| time_from | time_to	| components	| datum_count	|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 0			| user, system	| 1, 1			|
-		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query
+		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
 			| query_id	| tag_expression	| time_from	| time_to	| granularity	|
 			| 1			| bogous			| 1			| 0			| 1				|
 		Then I should get NoResults response
-		And it should exit with 0
+		Then it should exit with 0
 		And log output should include following entries:
 			| Starting DMS Data Processor version |
 			| DMS Data Processor ready |

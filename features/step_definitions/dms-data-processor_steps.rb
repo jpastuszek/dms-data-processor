@@ -56,7 +56,7 @@ When /it is started for (.*) quer/ do |query_count|
 	@program_pid, @program_thread, @program_out_queue = spawn(@program, @program_args)
 end
 
-When /I sent following RawDataPoints to (.*)/ do |address, raw_data_points|
+When /I sent following RawDataPoints to (.*):/ do |address, raw_data_points|
 	Timeout.timeout(2) do
 		ZeroMQ.new do |zmq|
 			zmq.push_connect(address) do |push|
@@ -68,7 +68,7 @@ When /I sent following RawDataPoints to (.*)/ do |address, raw_data_points|
 	end
 end
 
-When /I send following DataSetQueries to (.*)/ do |address, data_set_queries|
+When /I send following DataSetQueries to (.*):/ do |address, data_set_queries|
 	@query_resoults = []
 	Timeout.timeout(2) do
 		ZeroMQ.new do |zmq|
@@ -82,7 +82,7 @@ When /I send following DataSetQueries to (.*)/ do |address, data_set_queries|
 	end
 end
 
-Then /I should get following DataSets/ do |data_sets|
+Then /I should get following DataSets:/ do |data_sets|
 	@query_resoults.should have(data_sets.hashes.length).data_sets
 
 	data_sets.hashes.zip(@query_resoults).each do |h, result|
