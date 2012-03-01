@@ -15,11 +15,21 @@
 # You should have received a copy of the GNU General Public License
 # along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
 
-require 'dms-core'
-require 'dms-data-processor/tag_space'
-require 'dms-data-processor/memory_storage'
-require 'dms-data-processor/storage_controller'
-require 'dms-data-processor/data_processor_builder'
-require 'dms-data-processor/data_processor_module'
-require 'dms-data-processor/data_set_query_controller'
+class DataSetQueryController
+	def initialize(storage_controller)
+		@storage_controller = storage_controller
+	end
+
+	def query(data_set_query)
+		@storage_controller[data_set_query.tag_expression].map do |data_source|
+			DataSet.new(data_source.data_type_name, data_source.tag_set, data_set_query.time_from, data_set_query.time_to) do
+				data_source.data_set(data_set_query.time_from, data_set_query.time_to).each_pair do |component, data|
+					data.each do |time, value|
+						component_data component, time, value
+					end
+				end
+			end
+		end
+	end
+end
 

@@ -28,3 +28,54 @@ $LOAD_PATH.unshift(File.dirname(__FILE__) + '/../../lib')
 require 'dms-data-processor'
 
 require 'rspec/expectations'
+require 'capture-output'
+require 'tmpdir'
+require 'timeout'
+
+def run(program, args = '')
+	out = []
+	out << Capture.stdout do
+		out << Capture.stderr do
+			pid = Process.spawn("bundle exec bin/#{program} #{args}")
+			Process.waitpid(pid)
+			out << $?
+		end
+	end
+
+	out.reverse
+end
+
+def spawn(program, args = '')
+	r, w = IO.pipe
+	pid = Process.spawn("bundle exec bin/#{program} #{args}", :out => w, :err => w)
+	w.close
+	out_queue = Queue.new
+
+	thread = Thread.new do
+		r.each_line do |line|
+			out_queue << line
+		end
+	end
+
+	at_exit do
+		(0..3).to_a.any? do
+			Process.kill('TERM', pid)
+			Process.waitpid(pid, Process::WNOHANG).tap{sleep 1}
+		end or Process.kill('KILL', pid)
+	end
+
+	return pid, thread, out_queue
+end
+
+def temp_dir(name)
+	dir = Pathname.new(Dir.mktmpdir(name))
+
+	at_exit do
+		dir.rmtree
+	end
+
+	dir
+end
+
+
+

@@ -35,14 +35,18 @@ settings = CLI.new do
 		cast: Pathname,
 		description: 'path to directory from which data processor modules are loaded',
 		default: Pathname.new(__FILE__).dirname + '..' + 'module.d'
-	option :bind_address,
+	option :data_bind_address,
 		short: :b, 
 		description: 'ZeroMQ bind adderss for poller data collection', 
 		default: 'tcp://127.0.0.1:12100'
-	option :query_interface_bind_address,
+	option :query_bind_address,
 		short: :q, 
-		description: 'ZeroMQ bind adderss for DataSetQuery request and DataSets response socket (useful for testing)', 
+		description: 'ZeroMQ bind adderss for DataSetQuery request and DataSets response socket', 
 		default: 'ipc:///tmp/dms-data-processor-query'
+	option :query_count,
+		short: :c,
+		cast: Integer,
+		description: 'exit after replying to given number of queries (useful for testing)'
 	option :linger_time,
 		short: :L,
 		cast: Integer,
@@ -58,10 +62,11 @@ end
 
 Logging.logger.root.level = :debug if settings.debug
 
-logging_class_name 'DMSPoller'
+logging_class_name 'DMSDataProcessor'
 log.info "Starting DMS Data Processor version #{VERSION} (LibZMQ version #{ZeroMQ.lib_version}, ffi-ruby version #{ZeroMQ.binding_version}); pid #{Process.pid}"
 
 storage_controller = StorageController.new(MemoryStorage.new(10000))
+data_set_query_controller = DataSetQueryController.new(storage_controller)
 
 data_processor_modules = DataProcessorModules.new
 
@@ -76,10 +81,13 @@ data_processor_builders.each do |data_processor_builder|
 	storage_controller << data_processor_builder
 end
 
+queries_left = settings.query_count
+log.warn "exiting after #{queries_left} queries" if queries_left
+
 ZeroMQ.new do |zmq|
 	poller = ZeroMQ::Poller.new
-	zmq.rep_bind(settings.query_interface_bind_address) do |query_rep|
-		zmq.pull_bind(settings.bind_address) do |raw_data_point_pull|
+	zmq.rep_bind(settings.query_bind_address) do |query_rep|
+		zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
 			poller.register(query_rep)
 			poller.register(raw_data_point_pull)
 
@@ -95,22 +103,24 @@ ZeroMQ.new do |zmq|
 							end
 
 							log.debug "querying for: #{message}"
-							storage_controller[message.tag_expression].each do |data_source|
-								log.debug "got data source: #{data_source}"
-
-								data_set = DataSet.new(data_source.data_type_name, data_source.tag_set, message.time_from, message.time_to) do
-									data_source.data_set(message.time_from, message.time_to).each_pair do |component, data|
-										data.each do |time, value|
-											component_data component, time, value
-										end
-									end
+							data_sets = data_set_query_controller.query(message)
+							if data_sets.empty?
+								log.debug "no results"
+								query_rep.send NoResults.new
+							else
+								data_sets.each do |data_set|
+									log.debug "sending data set: #{data_set}"
+									query_rep.send(data_set, topic: message.query_id, sendmore: data_set != data_sets.last)
 								end
-
-								log.debug "sending data set: #{data_set}"
-								query_rep.send(data_set, topic: message.query_id, sendmore: true)
 							end
 
-							query_rep.send NoResults.new
+							if queries_left
+								queries_left -= 1
+								if queries_left <= 0
+									log.info "processed #{settings.query_count} queries, exiting..."
+									exit 0
+								end
+							end
 						when raw_data_point_pull
 							message = raw_data_point_pull.recv
 							if message.class != RawDataPoint
