@@ -163,15 +163,22 @@ end
 
 
 describe StorageController do
-	let(:data_processor_builder) do
+	let :data_processor_builder1 do
 		Logging.logger.root.level = :fatal
 
 		eval File.read(File.expand_path(File.dirname(__FILE__) + '/data_processor_builder_test1.rb'))
 	end
 
+	let :data_processor_builder2 do
+		Logging.logger.root.level = :fatal
+
+		eval File.read(File.expand_path(File.dirname(__FILE__) + '/data_processor_builder_test2.rb'))
+	end
+
 	subject do
 		st = StorageController.new(MemoryStorage.new(100))
-		st << data_processor_builder
+		st << data_processor_builder1
+		st << data_processor_builder2
 		10.times do |sample|
 			st.store(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user'], RawDatum.new(Time.at(sample), sample * 1))
 			st.store(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system'], RawDatum.new(Time.at(sample), sample * 2))

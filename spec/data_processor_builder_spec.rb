@@ -29,12 +29,10 @@ describe DataProcessorBuilder do
 
 	it 'should provide data processors when raw data under new keys become available' do
 		data_processors = subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user'])
-		data_processors.should have(1).data_processors
-		data_processors.shift.should be_a DataProcessor
+		data_processors.should have(0).data_processors
 
 		data_processors = subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system'])
-		data_processors.should have(1).data_processors
-		data_processors.shift.should be_a DataProcessor
+		data_processors.should have(0).data_processors
 
 		data_processors = subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user'])
 		data_processors.should have(1).data_processors
@@ -58,7 +56,8 @@ describe DataProcessorBuilder do
 
 	describe DataProcessor do
 		let(:data_processor) do
-			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).shift
+			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user'])
+			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']).shift
 		end
 
 		it 'should have data type name' do
@@ -66,8 +65,8 @@ describe DataProcessorBuilder do
 		end
 
 		it 'should have ID based on source of it' do
-			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).first.id.should == 'system CPU usage:count:nina'
-			subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).first.id.should == 'system CPU usage:count:magi'
+			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).should be_empty
+			subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).should be_empty
 			subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']).first.id.should == 'system CPU usage:cpu:magi:1'
 			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'system']).first.id.should == 'system CPU usage:cpu:nina:0'
 			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'stolen']).first.id.should == 'system CPU usage:cpu:nina:0'
@@ -76,19 +75,8 @@ describe DataProcessorBuilder do
 		end
 
 		it 'should have a tag set based on available raw data' do
-			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).first.tag_set.should == TagSet[
-				Tag.new('hello'), 
-				Tag.new('world'), 
-				Tag.new('location:nina'), 
-				Tag.new('system:CPU count')
-			]
-
-			subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).first.tag_set.should == TagSet[
-				Tag.new('hello'), 
-				Tag.new('world'), 
-				Tag.new('location:magi'), 
-				Tag.new('system:CPU count')
-			]
+			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).should be_empty
+			subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).should be_empty
 
 			subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']).first.tag_set.should == TagSet[
 				Tag.new('hello'), 
@@ -123,13 +111,8 @@ describe DataProcessorBuilder do
 		end
 
 		it 'should have a proper key set' do
-			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).first.raw_data_key_set.should == RawDataKeySet[
-				RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']
-			]
-
-			subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).first.raw_data_key_set.should == RawDataKeySet[
-				RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']
-			]
+			subject.classify(RawDataKey['nina', 'system/CPU usage/CPU/0', 'user']).should be_empty
+			subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'system']).should be_empty
 
 			subject.classify(RawDataKey['magi', 'system/CPU usage/CPU/1', 'user']).first.raw_data_key_set.should == RawDataKeySet[
 				RawDataKey['magi', 'system/CPU usage/CPU/1', 'user'],

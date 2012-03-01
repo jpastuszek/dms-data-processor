@@ -35,19 +35,6 @@ DataProcessorBuilder.new('system CPU usage', 'CPU usage') do
 		end
 	end.process_with :cpu_time_delta
 
-	classifier('count').select do
-		key 'system/CPU usage/CPU'
-	end.group do |raw_data_key|
-		by raw_data_key.location
-	end.need do
-		key 'system/CPU usage/CPU'
-	end.each_group do |group, raw_data_keys|
-		tag "location:#{group.first}"
-		tag "system:CPU count"
-	end.process_with do |time_from, time_to, data_sources|
-		collect 'count', time_from, data_sources.keys.length
-	end
-
 	processor(:cpu_time_delta) do |time_from, time_to, data_sources|
 		data_sources.each do |raw_data_key, raw_data|
 			rd = raw_data.range(time_from, time_to)
