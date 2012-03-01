@@ -73,5 +73,15 @@ describe DataSetQueryController do
 		data_set.component_data['user'].should have(4).dataum
 		data_set.component_data['system'].should have(4).dataum
 	end
+
+	it '#query should not return DataSet objects that time range does not match any data' do
+		data_sets = subject.query(DataSetQuery.new(1, 'magi', 10, 20, 1))
+		data_sets.should have(1).data_set
+
+		data_set = data_sets.select{|ds| ds.tag_set.to_s == 'hello, location:magi, system:CPU count, world'}.shift
+		data_set.type_name.should == 'count'
+		data_set.component_data['count'].should have(1).dataum
+		data_set.component_data['count'].first.last.should == 2
+	end
 end
 
