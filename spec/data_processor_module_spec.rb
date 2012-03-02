@@ -74,16 +74,6 @@ describe DataProcessorModule do
 		subject.data_processor_builders.shift.should be_a DataProcessorBuilder
 		subject.data_processor_builders.shift.should be_a DataProcessorBuilder
 	end
-
-	it 'can be loaded from string' do
-		Capture.stderr do
-			m = DataProcessorModule.load('system', <<EOF)
-				data_processor('memory usage') do
-				end
-EOF
-			m.data_processor_builders.should have(1).data_processor_builder
-		end
-	end
 end
 
 describe DataProcessorModules do
