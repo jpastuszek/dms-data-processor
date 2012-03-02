@@ -25,7 +25,7 @@ require 'dms-core'
 VERSION = (Pathname.new(__FILE__).dirname + '../VERSION').read
 
 settings = CLI.new do
-	description "DMS data query tool"
+	description "DMS data processor query tool"
 	version VERSION
 	switch :debug,
 		short: :d,
