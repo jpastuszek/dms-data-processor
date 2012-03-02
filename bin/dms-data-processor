@@ -163,8 +163,8 @@ ZeroMQ.new do |zmq|
 	rescue Interrupt
 		log.info "interrupted"
 	rescue SystemExit
-	rescue => e
-		log.fatal "got error: #{e.class.name}: #{e.message}: #{e.backtrace.join("\n")}"
+	rescue => error
+		log.fatal 'got error', error
 	ensure
 		log.info "shutting down..."
 	end
