@@ -35,10 +35,14 @@ settings = CLI.new do
 		cast: Pathname,
 		description: 'path to directory from which data processor modules are loaded',
 		default: Pathname.new(__FILE__).dirname + '..' + 'module.d'
-	option :console_endpoint_address,
+	option :console_connector_sub_address,
 		short: :e, 
-		description: 'ZeroMQ adderss of console endpoint', 
+		description: 'ZeroMQ adderss of console connector - subscriber', 
 		default: 'tcp://127.0.0.1:12000'
+	option :console_connector_pub_address,
+		short: :E, 
+		description: 'ZeroMQ adderss of console connector - publisher', 
+		default: 'tcp://127.0.0.1:12001'
 	option :data_bind_address,
 		short: :b, 
 		description: 'ZeroMQ bind adderss for poller data collection', 
@@ -97,8 +101,8 @@ ZeroMQ.new do |zmq|
 		poller = ZeroMQ::Poller.new
 		zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
 			zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
-				zmq.sub_connect(settings.console_endpoint_address) do |query_sub|
-					zmq.pub_connect(settings.console_endpoint_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_pub|
+				zmq.sub_connect(settings.console_connector_pub_address) do |query_sub|
+					zmq.pub_connect(settings.console_connector_sub_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_pub|
 						poller.register(raw_data_point_pull)
 						poller.register(query_sub)
 						poller.register(query_rep)
