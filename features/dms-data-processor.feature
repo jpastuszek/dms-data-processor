@@ -95,3 +95,31 @@ Feature: Storage and processing of RawDataPoints to DataSets
 		Then I should eventually get Hello response on test123 topic
 		And terminate the process
 
+	@pub_sub
+	Scenario: Producing DataSets via PUB/SUB query interface
+		Given dms-data-processor program
+		And debug enabled
+		And using data processor modules directory system
+		And data bind address is ipc:///tmp/dms-data-processor-test-data
+		And console connector subscribe address is ipc:///tmp/dms-console-connector-sub-test
+		And console connector publish address is ipc:///tmp/dms-console-connector-pub-test
+		And it is started
+		When I sent following RawDataPoints to ipc:///tmp/dms-data-processor-test-data:
+			| location	| path						| component | timestamp | value | 
+			| magi		| system/CPU usage/CPU/0	| user		|0			| 1		|
+			| magi		| system/CPU usage/CPU/0	| user		|1			| 2		|
+			| magi		| system/CPU usage/CPU/0	| system	|0			| 3		|
+			| magi		| system/CPU usage/CPU/0	| system	|1			| 4		|
+			| magi		| system/CPU usage/CPU/1	| user		|0			| 1		|
+			| magi		| system/CPU usage/CPU/1	| user		|1			| 2		|
+			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
+			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
+		And I publish following DataSetQueries on test321 topic waiting for 2 data sets:
+			| tag_expression	| time_from	| time_span	| granularity	|
+			| magi				| 1			| 1			| 1				|
+		Then I should get following DataSets:
+			| type_name | tag_set												| time_from | time_span	| components	| datum_count	|
+			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 1			| user, system	| 1, 1			|
+			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:1	| 1			| 1			| user, system	| 1, 1			|
+		And terminate the process
+

@@ -99,6 +99,46 @@ When /I send following DataSetQueries to (.*):/ do |address, data_set_queries|
 	end
 end
 
+When /I publish following DataSetQueries on (.*) topic waiting for (.*) data sets/ do |topic, data_set_count, data_set_queries|
+	@query_resoults = []
+
+	Timeout.timeout 4 do
+		ZeroMQ.new do |zmq|
+			zmq.pub_bind(@console_connector_pub_address) do |pub|
+				zmq.sub_bind(@console_connector_sub_address) do |sub|
+					sub.subscribe(Hello, topic)
+					sub.subscribe(DataSet, topic)
+
+					@discovery_thread = Thread.new do
+						loop do
+							pub.send Discover.new, topic: topic
+							sleep 0.2
+						end
+					end
+
+					loop do
+						msg = sub.recv
+						case msg
+						when Hello
+							if @discovery_thread.alive?
+								@discovery_thread.kill
+								@discovery_thread.join
+
+								data_set_queries.hashes.each do |h|
+									pub.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]), topic: topic
+								end
+							end
+						when DataSet
+							@query_resoults << msg
+							break if @query_resoults.length == data_set_count.to_i
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
 When /I keep publishing Discover messages on (.*) topic/ do |topic|
 	@publisher_thread = Thread.new do
 		ZeroMQ.new do |zmq|
