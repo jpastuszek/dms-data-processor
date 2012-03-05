@@ -130,7 +130,7 @@ ZeroMQ.new do |zmq|
 												data_sets = data_set_query_controller.query(message)
 												unless data_sets.empty?
 													data_sets.each do |data_set|
-														log.debug "sending data set: #{data_set}"
+														log.debug "sending #{data_set} to topic: #{topic}"
 														query_pub.send(data_set, topic: topic, more: data_set != data_sets.last)
 													end
 												end
@@ -147,8 +147,8 @@ ZeroMQ.new do |zmq|
 												query_rep.send NoResults.new
 											else
 												data_sets.each do |data_set|
-													log.debug "sending data set: #{data_set}"
-													query_rep.send(data_set, topic: data_set_query.query_id, more: data_set != data_sets.last)
+													log.debug "sending #{data_set}"
+													query_rep.send(data_set, more: data_set != data_sets.last)
 												end
 											end
 

@@ -60,21 +60,21 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
 			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
 		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
-			| query_id	| tag_expression	| time_from	| time_span	| granularity	|
-			| 1			| magi				| 1			| 1			| 1				|
+			| tag_expression	| time_from	| time_span	| granularity	|
+			| magi				| 1			| 1			| 1				|
 		Then I should get following DataSets:
 			| type_name | tag_set												| time_from | time_span	| components	| datum_count	|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 1			| user, system	| 1, 1			|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:1	| 1			| 1			| user, system	| 1, 1			|
 		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
-			| query_id	| tag_expression	| time_from	| time_span	| granularity	|
-			| 1			| CPU:0				| 1			| 1			| 1				|
+			| tag_expression	| time_from	| time_span	| granularity	|
+			| CPU:0				| 1			| 1			| 1				|
 		Then I should get following DataSets:
 			| type_name | tag_set												| time_from | time_span	| components	| datum_count	|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 1			| user, system	| 1, 1			|
 		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
-			| query_id	| tag_expression	| time_from	| time_span	| granularity	|
-			| 1			| bogous			| 1			| 1			| 1				|
+			| tag_expression	| time_from	| time_span	| granularity	|
+			| bogous			| 1			| 1			| 1				|
 		Then I should get NoResults response
 		Then it should exit with 0
 		And log output should include following entries:

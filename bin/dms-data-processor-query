@@ -34,10 +34,6 @@ settings = CLI.new do
 		short: :p, 
 		description: 'Data processor ZeroMQ query interface adderss', 
 		default: 'ipc:///tmp/dms-data-processor-query'
-	option :query_id,
-		short: :i,
-		description: 'query ID string used to find the response on PUB/SUB sockets',
-		default: rand(0...999999)
 	option :time_from,
 		short: :f,
 		cast: lambda{|s| Time.parse(s + ' UTC')},
@@ -58,7 +54,7 @@ end.parse!
 
 ZeroMQ.new do |zmq|
 	zmq.req_connect(settings.data_processor_address) do |query|
-		dsq = DataSetQuery.new(settings.query_id, settings.tag_expression.join(', '), settings.time_from, settings.time_span, settings.granularity)
+		dsq = DataSetQuery.new(settings.tag_expression.join(', '), settings.time_from, settings.time_span, settings.granularity)
 		log.info "sending query: #{dsq}"
 		query.send dsq
 		begin
