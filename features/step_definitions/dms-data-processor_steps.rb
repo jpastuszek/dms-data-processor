@@ -48,8 +48,25 @@ Given /query bind address is (.*)/ do |address|
 	@program_args << ['--query-bind-address', address]
 end
 
+Given /console connector subscribe address is (.*)/ do |address|
+	@program_args << ['--console-connector-sub-address', address]
+	@console_connector_sub_address = address
+end
+
+Given /console connector publish address is (.*)/ do |address|
+	@program_args << ['--console-connector-pub-address', address]
+	@console_connector_pub_address = address
+end
+
 When /it is started for (.*) quer/ do |query_count|
 	@program_args << ['--query-count', query_count.to_i]
+	@program_args = @program_args.join(' ')
+
+	puts "#{@program} #{@program_args}"
+	@program_pid, @program_thread, @program_out_queue = spawn(@program, @program_args)
+end
+
+When /it is started$/ do
 	@program_args = @program_args.join(' ')
 
 	puts "#{@program} #{@program_args}"
@@ -80,6 +97,41 @@ When /I send following DataSetQueries to (.*):/ do |address, data_set_queries|
 			end
 		end
 	end
+end
+
+When /I keep publishing Discover messages/ do
+	@publisher_thread = Thread.new do
+		ZeroMQ.new do |zmq|
+			zmq.pub_bind(@console_connector_pub_address, linger: 0) do |pub|
+				loop do
+					pub.send Discover.new
+					sleep 0.2
+				end
+			end
+		end
+	end
+end
+
+When /I should eventually get Hello response/ do
+	Timeout.timeout 4 do
+		ZeroMQ.new do |zmq|
+			zmq.sub_bind(@console_connector_sub_address) do |sub|
+				sub.subscribe('Hello')
+				msg = sub.recv
+				msg.should be_a Hello
+				msg.host_name.should == Facter.fqdn
+				msg.program.should == 'data-processor'
+				msg.pid.should > 0
+			end
+		end
+	end
+
+	@publisher_thread.kill
+	@publisher_thread.join
+end
+
+Then /terminate the process/ do
+	terminate(@program_pid, @program_thread)
 end
 
 Then /I should get following DataSets:/ do |data_sets|
@@ -113,7 +165,7 @@ And /it should exit with (.*)/ do |exitstatus|
 	until @program_out_queue.empty?
 		l = @program_out_queue.pop
 		@program_log << l
-		puts l
+		#puts l
 	end
 	@program_log = @program_log.join
 end

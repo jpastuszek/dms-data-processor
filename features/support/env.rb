@@ -31,6 +31,7 @@ require 'rspec/expectations'
 require 'capture-output'
 require 'tmpdir'
 require 'timeout'
+require 'facter'
 
 def run(program, args = '')
 	out = []
@@ -53,20 +54,24 @@ def spawn(program, args = '')
 
 	thread = Thread.new do
 		r.each_line do |line|
-			#puts line
+			puts line
 			out_queue << line
 		end
 	end
 
 	at_exit do
-		(0..3).to_a.any? do
-			Process.kill('TERM', pid)
-			Process.waitpid(pid, Process::WNOHANG).tap{sleep 1}
-		end or Process.kill('KILL', pid) rescue Errno::ESRCH
-		thread.join
+		terminate(pid, thread)
 	end
 
 	return pid, thread, out_queue
+end
+
+def terminate(pid, thread)
+	(0..3).to_a.any? do
+		Process.kill('TERM', pid)
+		Process.waitpid(pid, Process::WNOHANG).tap{sleep 1}
+	end or Process.kill('KILL', pid) rescue Errno::ESRCH
+	thread.join
 end
 
 def temp_dir(name)

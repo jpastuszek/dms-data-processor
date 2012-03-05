@@ -20,6 +20,7 @@ $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
 
 require 'cli'
 require 'pathname'
+require 'facter'
 require 'dms-data-processor'
 
 VERSION = (Pathname.new(__FILE__).dirname + '../VERSION').read
@@ -101,8 +102,12 @@ ZeroMQ.new do |zmq|
 		poller = ZeroMQ::Poller.new
 		zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
 			zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
+				log.info "subscribing to console publisher address: #{settings.console_connector_pub_address}"
 				zmq.sub_connect(settings.console_connector_pub_address) do |query_sub|
+					log.info "publishing to console subscriber address: #{settings.console_connector_sub_address}"
 					zmq.pub_connect(settings.console_connector_sub_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_pub|
+						query_sub.subscribe('Discover')
+						query_sub.subscribe('DataSetQuery')
 						poller.register(raw_data_point_pull)
 						poller.register(query_sub)
 						poller.register(query_rep)
@@ -114,14 +119,20 @@ ZeroMQ.new do |zmq|
 									begin
 										case reader
 										when query_sub
-											data_set_query = query_rep.recv(DataSetQuery)
-
-											log.debug "querying for: #{data_set_query}"
-											data_sets = data_set_query_controller.query(data_set_query)
-											unless data_sets.empty?
-												data_sets.each do |data_set|
-													log.debug "sending data set: #{data_set}"
-													query_pub.send(data_set, topic: data_set_query.query_id, more: data_set != data_sets.last)
+											message = query_sub.recv(Discover, DataSetQuery)
+											case message
+											when Discover
+												hello = Hello.new(Facter.fqdn, 'data-processor', Process.pid)
+												log.debug "got #{message}, sending #{hello} reply"
+												query_pub.send(hello)
+											when DataSetQuery
+												log.debug "querying for: #{message}"
+												data_sets = data_set_query_controller.query(message)
+												unless data_sets.empty?
+													data_sets.each do |data_set|
+														log.debug "sending data set: #{data_set}"
+														query_pub.send(data_set, topic: message.query_id, more: data_set != data_sets.last)
+													end
 												end
 											end
 										when query_rep

@@ -83,4 +83,15 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| exiting after 3 queries |
 			| DMS Data Processor done |
 
+	@discover
+	Scenario: Responds for Discover messages
+		Given dms-data-processor program
+		And debug enabled
+		And using data processor modules directory system
+		And console connector subscribe address is ipc:///tmp/dms-console-connector-sub-test
+		And console connector publish address is ipc:///tmp/dms-console-connector-pub-test
+		And it is started
+		When I keep publishing Discover messages
+		Then I should eventually get Hello response
+		And terminate the process
 
