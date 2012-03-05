@@ -91,7 +91,7 @@ Feature: Storage and processing of RawDataPoints to DataSets
 		And console connector subscribe address is ipc:///tmp/dms-console-connector-sub-test
 		And console connector publish address is ipc:///tmp/dms-console-connector-pub-test
 		And it is started
-		When I keep publishing Discover messages
-		Then I should eventually get Hello response
+		When I keep publishing Discover messages on test123 topic
+		Then I should eventually get Hello response on test123 topic
 		And terminate the process
 

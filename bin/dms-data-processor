@@ -104,10 +104,10 @@ ZeroMQ.new do |zmq|
 			zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
 				log.info "subscribing to console publisher address: #{settings.console_connector_pub_address}"
 				zmq.sub_connect(settings.console_connector_pub_address) do |query_sub|
+					query_sub.subscribe(Discover)
+					query_sub.subscribe(DataSetQuery)
 					log.info "publishing to console subscriber address: #{settings.console_connector_sub_address}"
 					zmq.pub_connect(settings.console_connector_sub_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_pub|
-						query_sub.subscribe('Discover')
-						query_sub.subscribe('DataSetQuery')
 						poller.register(raw_data_point_pull)
 						poller.register(query_sub)
 						poller.register(query_rep)
@@ -119,21 +119,23 @@ ZeroMQ.new do |zmq|
 									begin
 										case reader
 										when query_sub
-											message = query_sub.recv(Discover, DataSetQuery)
+											message, topic = query_sub.recv_with_topic
 											case message
 											when Discover
 												hello = Hello.new(Facter.fqdn, 'data-processor', Process.pid)
-												log.debug "got #{message}, sending #{hello} reply"
-												query_pub.send(hello)
+												log.debug "got #{message}, sending #{hello} reply to topic: #{topic}"
+												query_pub.send(hello, topic: topic)
 											when DataSetQuery
 												log.debug "querying for: #{message}"
 												data_sets = data_set_query_controller.query(message)
 												unless data_sets.empty?
 													data_sets.each do |data_set|
 														log.debug "sending data set: #{data_set}"
-														query_pub.send(data_set, topic: message.query_id, more: data_set != data_sets.last)
+														query_pub.send(data_set, topic: topic, more: data_set != data_sets.last)
 													end
 												end
+											else
+												log.debug "got unhandled message: #{message}"
 											end
 										when query_rep
 											data_set_query = query_rep.recv(DataSetQuery)

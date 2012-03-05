@@ -99,12 +99,12 @@ When /I send following DataSetQueries to (.*):/ do |address, data_set_queries|
 	end
 end
 
-When /I keep publishing Discover messages/ do
+When /I keep publishing Discover messages on (.*) topic/ do |topic|
 	@publisher_thread = Thread.new do
 		ZeroMQ.new do |zmq|
 			zmq.pub_bind(@console_connector_pub_address, linger: 0) do |pub|
 				loop do
-					pub.send Discover.new
+					pub.send Discover.new, topic: topic
 					sleep 0.2
 				end
 			end
@@ -112,11 +112,11 @@ When /I keep publishing Discover messages/ do
 	end
 end
 
-When /I should eventually get Hello response/ do
+When /I should eventually get Hello response on (.*) topic/ do |topic|
 	Timeout.timeout 4 do
 		ZeroMQ.new do |zmq|
 			zmq.sub_bind(@console_connector_sub_address) do |sub|
-				sub.subscribe('Hello')
+				sub.subscribe(Hello, topic)
 				msg = sub.recv
 				msg.should be_a Hello
 				msg.host_name.should == Facter.fqdn
