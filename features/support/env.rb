@@ -57,6 +57,7 @@ def spawn(program, args = '')
 			puts line
 			out_queue << line
 		end
+		puts 'thread done'
 	end
 
 	at_exit do
@@ -67,10 +68,12 @@ def spawn(program, args = '')
 end
 
 def terminate(pid, thread)
-	(0..3).to_a.any? do
-		Process.kill('TERM', pid)
-		Process.waitpid(pid, Process::WNOHANG).tap{sleep 1}
-	end or Process.kill('KILL', pid) rescue Errno::ESRCH
+	Process.kill('INT', pid)
+	(0..80).to_a.any? do
+		Process.waitpid(pid, Process::WNOHANG).tap{sleep 0.1}
+	end or Process.kill('KILL', pid)
+rescue Errno::ESRCH
+ensure
 	thread.join
 end
 

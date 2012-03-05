@@ -41,14 +41,16 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			end
 		end
 		"""
-
-	Scenario: Producing DataSets via REQ/REP query interface
 		Given dms-data-processor program
 		And debug enabled
-		And using data processor modules directory system
+		And use linger time of 4
+
+	@test
+	Scenario: Producing DataSets via REQ/REP query interface - all results
+		Given using data processor modules directory system
 		And data bind address is ipc:///tmp/dms-data-processor-test-data
 		And query bind address is ipc:///tmp/dms-data-processor-test-query
-		And it is started for 3 queries
+		And it is started
 		When I sent following RawDataPoints to ipc:///tmp/dms-data-processor-test-data:
 			| location	| path						| component | timestamp | value | 
 			| magi		| system/CPU usage/CPU/0	| user		|0			| 1		|
@@ -66,28 +68,60 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| type_name | tag_set												| time_from | time_span	| components	| datum_count	|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 1			| user, system	| 1, 1			|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:1	| 1			| 1			| user, system	| 1, 1			|
+		And terminate the process
+		And log output should include following entries:
+			| Starting DMS Data Processor version |
+			| DMS Data Processor ready |
+			| DMS Data Processor done |
+
+	Scenario: Producing DataSets via REQ/REP query interface - selective result
+		Given using data processor modules directory system
+		And data bind address is ipc:///tmp/dms-data-processor-test-data
+		And query bind address is ipc:///tmp/dms-data-processor-test-query
+		And it is started
+		When I sent following RawDataPoints to ipc:///tmp/dms-data-processor-test-data:
+			| location	| path						| component | timestamp | value | 
+			| magi		| system/CPU usage/CPU/0	| user		|0			| 1		|
+			| magi		| system/CPU usage/CPU/0	| user		|1			| 2		|
+			| magi		| system/CPU usage/CPU/0	| system	|0			| 3		|
+			| magi		| system/CPU usage/CPU/0	| system	|1			| 4		|
+			| magi		| system/CPU usage/CPU/1	| user		|0			| 1		|
+			| magi		| system/CPU usage/CPU/1	| user		|1			| 2		|
+			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
+			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
 		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
 			| tag_expression	| time_from	| time_span	| granularity	|
 			| CPU:0				| 1			| 1			| 1				|
 		Then I should get following DataSets:
 			| type_name | tag_set												| time_from | time_span	| components	| datum_count	|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 1			| user, system	| 1, 1			|
+		And terminate the process
+
+	@no_results
+	Scenario: Producing DataSets via REQ/REP query interface - NoResults
+		Given using data processor modules directory system
+		And data bind address is ipc:///tmp/dms-data-processor-test-data
+		And query bind address is ipc:///tmp/dms-data-processor-test-query
+		And it is started
+		When I sent following RawDataPoints to ipc:///tmp/dms-data-processor-test-data:
+			| location	| path						| component | timestamp | value | 
+			| magi		| system/CPU usage/CPU/0	| user		|0			| 1		|
+			| magi		| system/CPU usage/CPU/0	| user		|1			| 2		|
+			| magi		| system/CPU usage/CPU/0	| system	|0			| 3		|
+			| magi		| system/CPU usage/CPU/0	| system	|1			| 4		|
+			| magi		| system/CPU usage/CPU/1	| user		|0			| 1		|
+			| magi		| system/CPU usage/CPU/1	| user		|1			| 2		|
+			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
+			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
 		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
 			| tag_expression	| time_from	| time_span	| granularity	|
 			| bogous			| 1			| 1			| 1				|
 		Then I should get NoResults response
-		Then it should exit with 0
-		And log output should include following entries:
-			| Starting DMS Data Processor version |
-			| DMS Data Processor ready |
-			| exiting after 3 queries |
-			| DMS Data Processor done |
+		And terminate the process
 
 	@discover
 	Scenario: Responds for Discover messages
-		Given dms-data-processor program
-		And debug enabled
-		And using data processor modules directory system
+		Given using data processor modules directory system
 		And console connector subscribe address is ipc:///tmp/dms-console-connector-sub-test
 		And console connector publish address is ipc:///tmp/dms-console-connector-pub-test
 		And it is started
@@ -97,9 +131,7 @@ Feature: Storage and processing of RawDataPoints to DataSets
 
 	@pub_sub
 	Scenario: Producing DataSets via PUB/SUB query interface
-		Given dms-data-processor program
-		And debug enabled
-		And using data processor modules directory system
+		Given using data processor modules directory system
 		And data bind address is ipc:///tmp/dms-data-processor-test-data
 		And console connector subscribe address is ipc:///tmp/dms-console-connector-sub-test
 		And console connector publish address is ipc:///tmp/dms-console-connector-pub-test

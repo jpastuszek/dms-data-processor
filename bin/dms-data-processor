@@ -52,10 +52,6 @@ settings = CLI.new do
 		short: :q, 
 		description: 'ZeroMQ bind adderss for DataSetQuery request and DataSets response socket', 
 		default: 'ipc:///tmp/dms-data-processor-query'
-	option :query_count,
-		short: :c,
-		cast: Integer,
-		description: 'exit after replying to given number of queries (useful for testing)'
 	option :queue_query_reply_message_count,
 		cast: Integer,
 		description: 'queue up to specified number of reply messages in memory if receiver is not reading them',
@@ -94,81 +90,72 @@ data_processor_builders.each do |data_processor_builder|
 	storage_controller << data_processor_builder
 end
 
-queries_left = settings.query_count
-log.warn "exiting after #{queries_left} queries" if queries_left
+begin
+	ZeroMQ.new do |zmq|
+		begin
+			poller = ZeroMQ::Poller.new
+			zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
+				zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
+					log.info "subscribing to console publisher address: #{settings.console_connector_pub_address}"
+					zmq.sub_connect(settings.console_connector_pub_address) do |query_sub|
+						query_sub.subscribe(Discover)
+						query_sub.subscribe(DataSetQuery)
+						log.info "publishing to console subscriber address: #{settings.console_connector_sub_address}"
+						zmq.pub_connect(settings.console_connector_sub_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_pub|
+							poller.register(raw_data_point_pull)
+							poller.register(query_sub)
+							poller.register(query_rep)
 
-ZeroMQ.new do |zmq|
-	begin
-		poller = ZeroMQ::Poller.new
-		zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
-			zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
-				log.info "subscribing to console publisher address: #{settings.console_connector_pub_address}"
-				zmq.sub_connect(settings.console_connector_pub_address) do |query_sub|
-					query_sub.subscribe(Discover)
-					query_sub.subscribe(DataSetQuery)
-					log.info "publishing to console subscriber address: #{settings.console_connector_sub_address}"
-					zmq.pub_connect(settings.console_connector_sub_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_pub|
-						poller.register(raw_data_point_pull)
-						poller.register(query_sub)
-						poller.register(query_rep)
+							log.info "DMS Data Processor ready"
+							loop do
+								poller.poll do |readers, writters|
+									readers.each do |reader|
+										begin
+											case reader
+											when query_sub
+												message, topic = query_sub.recv_with_topic
+												case message
+												when Discover
+													hello = Hello.new(Facter.fqdn, 'data-processor', Process.pid)
+													log.debug "got #{message}, sending #{hello} reply to topic: #{topic}"
+													query_pub.send(hello, topic: topic)
+												when DataSetQuery
+													log.debug "querying for: #{message}"
+													data_sets = data_set_query_controller.query(message)
+													unless data_sets.empty?
+														data_sets.each do |data_set|
+															log.debug "sending #{data_set} to topic: #{topic}"
+															query_pub.send(data_set, topic: topic, more: data_set != data_sets.last)
+														end
+													end
+												else
+													log.debug "got unhandled message: #{message}"
+												end
+											when query_rep
+												data_set_query = query_rep.recv(DataSetQuery)
 
-						log.info "DMS Data Processor ready"
-						loop do
-							poller.poll do |readers, writters|
-								readers.each do |reader|
-									begin
-										case reader
-										when query_sub
-											message, topic = query_sub.recv_with_topic
-											case message
-											when Discover
-												hello = Hello.new(Facter.fqdn, 'data-processor', Process.pid)
-												log.debug "got #{message}, sending #{hello} reply to topic: #{topic}"
-												query_pub.send(hello, topic: topic)
-											when DataSetQuery
-												log.debug "querying for: #{message}"
-												data_sets = data_set_query_controller.query(message)
-												unless data_sets.empty?
+												log.debug "querying for: #{data_set_query}"
+												data_sets = data_set_query_controller.query(data_set_query)
+												if data_sets.empty?
+													log.debug "no results"
+													query_rep.send NoResults.new
+												else
 													data_sets.each do |data_set|
-														log.debug "sending #{data_set} to topic: #{topic}"
-														query_pub.send(data_set, topic: topic, more: data_set != data_sets.last)
+														log.debug "sending #{data_set}"
+														query_rep.send(data_set, more: data_set != data_sets.last)
 													end
 												end
-											else
-												log.debug "got unhandled message: #{message}"
-											end
-										when query_rep
-											data_set_query = query_rep.recv(DataSetQuery)
+											when raw_data_point_pull
+												raw_data_point = raw_data_point_pull.recv(RawDataPoint)
 
-											log.debug "querying for: #{data_set_query}"
-											data_sets = data_set_query_controller.query(data_set_query)
-											if data_sets.empty?
-												log.debug "no results"
-												query_rep.send NoResults.new
-											else
-												data_sets.each do |data_set|
-													log.debug "sending #{data_set}"
-													query_rep.send(data_set, more: data_set != data_sets.last)
-												end
+												key = RawDataKey[raw_data_point.location, raw_data_point.path, raw_data_point.component]
+												value = RawDatum[raw_data_point.time_stamp, raw_data_point.value]
+												log.debug "storing #{key} #{value}"
+												storage_controller.store(key, value)
 											end
-
-											if queries_left
-												queries_left -= 1
-												if queries_left <= 0
-													log.info "processed #{settings.query_count} queries"
-													exit 0
-												end
-											end
-										when raw_data_point_pull
-											raw_data_point = raw_data_point_pull.recv(RawDataPoint)
-
-											key = RawDataKey[raw_data_point.location, raw_data_point.path, raw_data_point.component]
-											value = RawDatum[raw_data_point.time_stamp, raw_data_point.value]
-											log.debug "storing #{key} #{value}"
-											storage_controller.store(key, value)
+										rescue ZeroMQ::Receiver::UnexpectedMessageType => error
+											log.warn error.message
 										end
-									rescue ZeroMQ::Receiver::UnexpectedMessageType => error
-										log.warn error.message
 									end
 								end
 							end
@@ -176,17 +163,17 @@ ZeroMQ.new do |zmq|
 					end
 				end
 			end
+		rescue Interrupt
+			log.info "interrupted"
+		rescue SystemExit
+		rescue => error
+			log.fatal 'got error', error
+		ensure
+			log.info "shutting down..."
 		end
-	rescue Interrupt
-		log.info "interrupted"
-	rescue SystemExit
-	rescue => error
-		log.fatal 'got error', error
-	ensure
-		log.info "shutting down..."
+		log.info "waiting for messages to be sent..."
 	end
-	log.info "waiting for messages to be sent..."
+ensure
+	log.info "DMS Data Processor done"
 end
-
-log.info "DMS Data Processor done"
 

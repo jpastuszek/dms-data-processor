@@ -40,6 +40,10 @@ Given /debug enabled/ do
 	@program_args << ['--debug']
 end
 
+Given /use linger time of (.+)/ do |linger_time|
+	@program_args << ['--linger-time', linger_time.to_i]
+end
+
 Given /data bind address is (.*)/ do |address|
 	@program_args << ['--data-bind-address', address]
 end
@@ -193,24 +197,14 @@ Then /I should get NoResults response/ do
 	@query_resoults.first.should be_a NoResults
 end
 
-And /it should exit with (.*)/ do |exitstatus|
-	Timeout.timeout(2) do 
-		Process.waitpid(@program_pid)
-		@program_thread.join
-	end
-
-	$?.exitstatus.should == exitstatus.to_i
-	
+Then /log output should include following entries:/ do |log_entries|
 	@program_log = []
 	until @program_out_queue.empty?
 		l = @program_out_queue.pop
 		@program_log << l
-		#puts l
 	end
-	@program_log = @program_log.join
-end
 
-Then /log output should include following entries:/ do |log_entries|
+	@program_log = @program_log.join
 	log_entries.raw.flatten.each do |entry|
 		@program_log.should include(entry)
 	end
