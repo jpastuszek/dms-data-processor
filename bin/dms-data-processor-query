@@ -56,10 +56,10 @@ ZeroMQ.new do |zmq|
 	zmq.req_connect(settings.data_processor_address) do |query|
 		dsq = DataSetQuery.new(settings.tag_expression.join(', '), settings.time_from, settings.time_span, settings.granularity)
 		log.info "sending query: #{dsq}"
-		query.send dsq
-		begin
-			log.info "received: #{query.recv}"
-		end while query.more?
+
+		query.send dsq do |response|
+			log.info "received: #{response}"
+		end.receive!
 	end
 end
 

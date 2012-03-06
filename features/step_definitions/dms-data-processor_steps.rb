@@ -94,9 +94,10 @@ When /I send following DataSetQueries to (.*):/ do |address, data_set_queries|
 	Timeout.timeout(2) do
 		ZeroMQ.new do |zmq|
 			zmq.req_connect(address) do |req|
-				 data_set_queries.hashes.each do |h|
-					req.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity])
-					@query_resoults.concat req.recv_all
+				data_set_queries.hashes.each do |h|
+					req.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]) do |response|
+						@query_resoults << response
+					end.receive!
 				end
 			end
 		end
@@ -110,9 +111,6 @@ When /I publish following DataSetQueries on (.*) topic waiting for (.*) data set
 		ZeroMQ.new do |zmq|
 			zmq.pub_bind(@console_connector_pub_address) do |pub|
 				zmq.sub_bind(@console_connector_sub_address) do |sub|
-					sub.subscribe(Hello, topic)
-					sub.subscribe(DataSet, topic)
-
 					@discovery_thread = Thread.new do
 						loop do
 							pub.send Discover.new, topic: topic
@@ -120,22 +118,24 @@ When /I publish following DataSetQueries on (.*) topic waiting for (.*) data set
 						end
 					end
 
-					loop do
-						msg = sub.recv
-						case msg
-						when Hello
-							if @discovery_thread.alive?
-								@discovery_thread.kill
-								@discovery_thread.join
+					sub.on Hello, topic do |msg|
+						if @discovery_thread.alive?
+							@discovery_thread.kill
+							@discovery_thread.join
 
-								data_set_queries.hashes.each do |h|
-									pub.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]), topic: topic
-								end
+							data_set_queries.hashes.each do |h|
+								pub.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]), topic: topic
 							end
-						when DataSet
-							@query_resoults << msg
-							break if @query_resoults.length == data_set_count.to_i
 						end
+					end
+
+					sub.on DataSet, topic do |msg|
+						@query_resoults << msg
+					end
+
+					loop do
+						sub.receive!
+						break if @query_resoults.length == data_set_count.to_i
 					end
 				end
 			end
@@ -157,21 +157,24 @@ When /I keep publishing Discover messages on (.*) topic/ do |topic|
 end
 
 When /I should eventually get Hello response on (.*) topic/ do |topic|
+	message = nil
 	Timeout.timeout 4 do
 		ZeroMQ.new do |zmq|
 			zmq.sub_bind(@console_connector_sub_address) do |sub|
-				sub.subscribe(Hello, topic)
-				msg = sub.recv
-				msg.should be_a Hello
-				msg.host_name.should == Facter.fqdn
-				msg.program.should == 'data-processor'
-				msg.pid.should > 0
+				sub.on Hello, topic do |msg|
+					message = msg
+				end.receive!
 			end
 		end
 	end
 
 	@publisher_thread.kill
 	@publisher_thread.join
+
+	message.should be_a Hello
+	message.host_name.should == Facter.fqdn
+	message.program.should == 'data-processor'
+	message.pid.should > 0
 end
 
 Then /terminate the process/ do
