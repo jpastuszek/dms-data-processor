@@ -111,26 +111,25 @@ When /I publish following DataSetQueries on (.*) topic waiting for (.*) data set
 		ZeroMQ.new do |zmq|
 			zmq.pub_bind(@console_connector_pub_address) do |pub|
 				zmq.sub_bind(@console_connector_sub_address) do |sub|
-					@discovery_thread = Thread.new do
-						loop do
-							pub.send Discover.new, topic: topic
-							sleep 0.2
-						end
-					end
+					poller = ZeroMQ::Poller.new
+					got_hello = nil
 
 					sub.on Hello, topic do |msg|
-						if @discovery_thread.alive?
-							@discovery_thread.kill
-							@discovery_thread.join
-
-							data_set_queries.hashes.each do |h|
-								pub.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]), topic: topic
-							end
-						end
+						got_hello = true
 					end
+
+					poller << sub
+					begin 
+						pub.send Discover.new, topic: topic
+						poller.poll(0.2)
+					end until got_hello 
 
 					sub.on DataSet, topic do |msg|
 						@query_resoults << msg
+					end
+
+					data_set_queries.hashes.each do |h|
+						pub.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]), topic: topic
 					end
 
 					loop do
