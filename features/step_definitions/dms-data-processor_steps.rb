@@ -176,6 +176,56 @@ When /I should eventually get Hello response on (.*) topic/ do |topic|
 	message.pid.should > 0
 end
 
+When /I publish Discover messages as follows:/ do |discovers|
+	Timeout.timeout 4 do
+		ZeroMQ.new do |zmq|
+			zmq.pub_bind(@console_connector_pub_address) do |pub|
+				zmq.sub_bind(@console_connector_sub_address) do |sub|
+					got_init = nil
+					sub.on Hello, 'init' do |msg|
+						got_init = true
+					end
+
+					poller = ZeroMQ::Poller.new
+					poller << sub
+					begin 
+						pub.send Discover.new, topic: 'init'
+						poller.poll(0.2)
+					end until got_init 
+
+					@hello_topics = {}
+					discovers.hashes.each do |d|
+						unless @hello_topics.has_key? d[:topic] 
+							@hello_topics[d[:topic]] = []
+							sub.on Hello, d[:topic] do |msg, topic|
+								@hello_topics[d[:topic]] << msg
+							end
+						end
+
+						pub.send Discover.new(d[:host_name], d[:program]), topic: d[:topic]
+					end
+
+					got_end = nil
+					sub.on Hello, 'end' do |msg, topic|
+						got_end = true
+					end
+
+					pub.send Discover.new, topic: 'end'
+
+					until got_end
+						sub.receive!
+					end
+				end
+			end
+		end
+	end
+end
+
+Then /I should get (.*) Hello messages on (.*) topic/ do |count, topic|
+	@hello_topics[topic].should have(count.to_i).messages
+	@hello_topics[topic].each{|message| message.should be_a Hello}
+end
+
 Then /terminate the process/ do
 	terminate(@program_pid, @program_thread)
 end

@@ -57,7 +57,6 @@ def spawn(program, args = '')
 			puts line
 			out_queue << line
 		end
-		puts 'thread done'
 	end
 
 	at_exit do

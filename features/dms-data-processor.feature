@@ -127,6 +127,15 @@ Feature: Storage and processing of RawDataPoints to DataSets
 		And it is started
 		When I keep publishing Discover messages on test123 topic
 		Then I should eventually get Hello response on test123 topic
+		When I publish Discover messages as follows:
+			| host_name | program			| topic |
+			| /.*/		|					| good	|
+			| abcd		| data-processor	| bad	|
+			|			| asdf				| bad	|
+			| /abc/		|					| bad	|
+			|			| data-processor	| good	|
+		Then I should get 2 Hello messages on good topic
+		Then I should get 0 Hello messages on bad topic
 		And terminate the process
 
 	@pub_sub

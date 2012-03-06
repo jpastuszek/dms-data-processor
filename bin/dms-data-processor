@@ -100,11 +100,7 @@ begin
 					zmq.sub_connect(settings.console_connector_pub_address) do |query_sub|
 						log.info "publishing to console subscriber address: #{settings.console_connector_sub_address}"
 						zmq.pub_connect(settings.console_connector_sub_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_pub|
-							query_sub.on Discover do |discover, topic|
-								hello = Hello.new(Facter.fqdn, 'data-processor', Process.pid)
-								log.debug "got #{discover}, sending #{hello} reply to topic: #{topic}"
-								query_pub.send(hello, topic: topic)
-							end
+							DiscoverHandler.new(query_sub, query_pub, Facter.fqdn, 'data-processor', Process.pid)
 
 							query_sub.on DataSetQuery do |data_set_query, topic|
 								log.debug "querying for: #{data_set_query}"
