@@ -96,10 +96,9 @@ begin
 			poller = ZeroMQ::Poller.new
 			zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
 				zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
-					log.info "publishing to console subscriber address: #{settings.console_connector_sub_address}"
-					log.info "subscribing to console publisher address: #{settings.console_connector_pub_address}"
-					Bus.connect(zmq, settings.console_connector_pub_address, settings.console_connector_sub_address, {hwm: settings.queue_query_reply_message_count, linger: settings.linger_time}) do |bus|
-						BusResponder.new(bus, Facter.fqdn, 'data-processor', Process.pid)
+					log.info "console subscriber: #{settings.console_connector_sub_address}, publisher: #{settings.console_connector_pub_address}"
+					zmq.bus_connect(settings.console_connector_pub_address, settings.console_connector_sub_address, {hwm: settings.queue_query_reply_message_count, linger: settings.linger_time}) do |bus|
+						bus.responder(Facter.fqdn, 'data-processor', Process.pid)
 
 						bus.on DataSetQuery do |data_set_query, topic|
 							log.debug "querying for: #{data_set_query}"
