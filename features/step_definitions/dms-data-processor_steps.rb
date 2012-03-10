@@ -53,12 +53,12 @@ Given /query bind address is (.*)/ do |address|
 end
 
 Given /console connector subscribe address is (.*)/ do |address|
-	@program_args << ['--console-connector-sub-address', address]
+	@program_args << ['--console-subscriber', address]
 	@console_connector_sub_address = address
 end
 
 Given /console connector publish address is (.*)/ do |address|
-	@program_args << ['--console-connector-pub-address', address]
+	@program_args << ['--console-publisher', address]
 	@console_connector_pub_address = address
 end
 
