@@ -18,9 +18,9 @@
 
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
 
-require 'dms-data-processor'
 require 'pathname'
 require 'facter'
+require 'dms-data-processor'
 
 VERSION = (Pathname.new(__FILE__).dirname + '../VERSION').read
 
@@ -78,74 +78,62 @@ Program::Daemon.new('DMS Data Processor', VERSION) do
 			storage_controller << data_processor_builder
 		end
 
-		begin
-			ZeroMQ.new do |zmq|
-				begin
-					poller = ZeroMQ::Poller.new
-					zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
-						zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
-							log.info "console subscriber: #{settings.console_subscriber}, publisher: #{settings.console_publisher}"
-							zmq.bus_connect(settings.console_publisher, settings.console_subscriber, {hwm: settings.queue_query_reply_message_count, linger: settings.linger_time}) do |bus|
-								bus.responder(Facter.fqdn, 'data-processor', Process.pid)
+		ZeroMQ.new do |zmq|
+			poller = ZeroMQ::Poller.new
+			zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
+				zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
+					log.info "console subscriber: #{settings.console_subscriber}, publisher: #{settings.console_publisher}"
+					zmq.bus_connect(settings.console_publisher, settings.console_subscriber, {hwm: settings.queue_query_reply_message_count, linger: settings.linger_time}) do |bus|
+						bus.responder(Facter.fqdn, 'data-processor', Process.pid)
 
-								bus.on DataSetQuery do |data_set_query, topic|
-									log.debug "querying for: #{data_set_query}"
-									data_sets = data_set_query_controller.query(data_set_query)
-									unless data_sets.empty?
-										data_sets.each do |data_set|
-											log.debug "sending #{data_set} to topic: #{topic}"
-											bus.send(data_set, topic: topic, more: data_set != data_sets.last)
-										end
-									end
+						bus.on DataSetQuery do |data_set_query, topic|
+							log.debug "querying for: #{data_set_query}"
+							data_sets = data_set_query_controller.query(data_set_query)
+							unless data_sets.empty?
+								data_sets.each do |data_set|
+									log.debug "sending #{data_set} to topic: #{topic}"
+									bus.send(data_set, topic: topic, more: data_set != data_sets.last)
 								end
-								poller << bus
+							end
+						end
+						poller << bus
 
-								query_rep.on DataSetQuery do |data_set_query|
-									log.debug "querying for: #{data_set_query}"
-									data_sets = data_set_query_controller.query(data_set_query)
-									if data_sets.empty?
-										log.debug "no results"
-										query_rep.send NoResults.new
-									else
-										data_sets.each do |data_set|
-											log.debug "sending #{data_set} more: #{data_set != data_sets.last}"
-											query_rep.send(data_set, more: data_set != data_sets.last)
-										end
-									end
+						query_rep.on DataSetQuery do |data_set_query|
+							log.debug "querying for: #{data_set_query}"
+							data_sets = data_set_query_controller.query(data_set_query)
+							if data_sets.empty?
+								log.debug "no results"
+								query_rep.send NoResults.new
+							else
+								data_sets.each do |data_set|
+									log.debug "sending #{data_set} more: #{data_set != data_sets.last}"
+									query_rep.send(data_set, more: data_set != data_sets.last)
 								end
-								poller << query_rep
+							end
+						end
+						poller << query_rep
 
-								raw_data_point_pull.on RawDataPoint do |raw_data_point|
-									key = RawDataKey[raw_data_point.location, raw_data_point.path, raw_data_point.component]
-									value = RawDatum[raw_data_point.time_stamp, raw_data_point.value]
-									log.debug "storing #{key} #{value}"
-									storage_controller.store(key, value)
-								end
-								poller << raw_data_point_pull
+						raw_data_point_pull.on RawDataPoint do |raw_data_point|
+							key = RawDataKey[raw_data_point.location, raw_data_point.path, raw_data_point.component]
+							value = RawDatum[raw_data_point.time_stamp, raw_data_point.value]
+							log.debug "storing #{key} #{value}"
+							storage_controller.store(key, value)
+						end
+						poller << raw_data_point_pull
 
-								log.info "DMS Data Processor ready"
-								loop do
-									begin
-										poller.poll!
-									rescue => error
-										log.error error.message
-									end
+						main_loop do
+							loop do
+								begin
+									poller.poll!
+								rescue => error
+									log.error error.message
 								end
 							end
 						end
 					end
-				rescue Interrupt
-					log.info "interrupted"
-				rescue SystemExit
-				rescue => error
-					log.fatal 'got error', error
-				ensure
-					log.info "shutting down..."
 				end
-				log.info "waiting for messages to be sent..."
 			end
-		ensure
-			log.info "DMS Data Processor done"
+			log.info 'waiting for messages to be sent...'
 		end
 	end
 end

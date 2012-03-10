@@ -18,48 +18,47 @@
 
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
 
-require 'cli'
 require 'pathname'
 require 'dms-core'
 
 VERSION = (Pathname.new(__FILE__).dirname + '../VERSION').read
 
-settings = CLI.new do
-	description "DMS data processor query tool"
-	version VERSION
-	switch :debug,
-		short: :d,
-		description: 'enable debugging'
-	option :data_processor_address,
-		short: :p, 
-		description: 'Data processor ZeroMQ query interface adderss', 
-		default: 'ipc:///tmp/dms-data-processor-query'
-	option :time_from,
-		short: :f,
-		cast: lambda{|s| Time.parse(s + ' UTC')},
-		description: 'time string representing how recent the data should be',
-		default: Time.now.to_s
-	option :time_span,
-		short: :t,
-		cast: Float,
-		description: 'for how many seconds from time-form should the data be going back to',
-		default: 60*60
-	option :granularity,
-		short: :g,
-		cast: Float,
-		description: 'minimal time differenc between values in seconds',
-		default: 1.0
-	arguments :tag_expression
-end.parse!
+Program::Tool.new('DMS Data Processor', VERSION) do
+	cli do
+		description "DMS data processor query tool"
+		option :data_processor_address,
+			short: :p, 
+			description: 'Data processor ZeroMQ query interface adderss', 
+			default: 'ipc:///tmp/dms-data-processor-query'
+		option :time_from,
+			short: :f,
+			cast: lambda{|s| Time.parse(s + ' UTC')},
+			description: 'time string representing how recent the data should be',
+			default: Time.now.to_s
+		option :time_span,
+			short: :t,
+			cast: Float,
+			description: 'for how many seconds from time-form should the data be going back to',
+			default: 60*60
+		option :granularity,
+			short: :g,
+			cast: Float,
+			description: 'minimal time differenc between values in seconds',
+			default: 1.0
+		arguments :tag_expression
+	end
 
-ZeroMQ.new do |zmq|
-	zmq.req_connect(settings.data_processor_address) do |query|
-		dsq = DataSetQuery.new(settings.tag_expression.join(', '), settings.time_from, settings.time_span, settings.granularity)
-		log.info "sending query: #{dsq}"
+	main do |settings|
+		ZeroMQ.new do |zmq|
+			zmq.req_connect(settings.data_processor_address, linger: 0) do |query|
+				dsq = DataSetQuery.new(settings.tag_expression.join(', '), settings.time_from, settings.time_span, settings.granularity)
+				log.info "sending query: #{dsq}"
 
-		query.send dsq do |response|
-			log.info "received: #{response}"
-		end.receive!
+				query.send dsq do |response|
+					log.info "received: #{response}"
+				end.receive!
+			end
+		end
 	end
 end
 
