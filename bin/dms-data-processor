@@ -41,10 +41,6 @@ Program::Daemon.new('DMS Data Processor', VERSION) do
 			short: :q, 
 			description: 'ZeroMQ bind adderss for DataSetQuery request and DataSets response socket', 
 			default: 'ipc:///tmp/dms-data-processor-query'
-		option :queue_query_reply_message_count,
-			cast: Integer,
-			description: 'queue up to specified number of reply messages in memory if receiver is not reading them',
-			default: '100'
 		linger_time
 	end
 
@@ -76,9 +72,9 @@ Program::Daemon.new('DMS Data Processor', VERSION) do
 		ZeroMQ.new do |zmq|
 			poller = ZeroMQ::Poller.new
 			zmq.pull_bind(settings.data_bind_address) do |raw_data_point_pull|
-				zmq.rep_bind(settings.query_bind_address, hwm: settings.queue_query_reply_message_count, linger: settings.linger_time) do |query_rep|
+				zmq.rep_bind(settings.query_bind_address, hwm: 0, linger: settings.linger_time) do |query_rep|
 					log.info "console subscriber: #{settings.console_subscriber}, publisher: #{settings.console_publisher}"
-					zmq.bus_connect(settings.console_publisher, settings.console_subscriber, {hwm: settings.queue_query_reply_message_count, linger: settings.linger_time}) do |bus|
+					zmq.bus_connect(settings.console_publisher, settings.console_subscriber, {linger: settings.linger_time}) do |bus|
 						bus.responder(settings.host_name, settings.program, settings.pid)
 
 						bus.on DataSetQuery do |data_set_query, topic|
