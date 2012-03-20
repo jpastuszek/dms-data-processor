@@ -172,7 +172,7 @@ When /I should eventually get Hello response on (.*) topic/ do |topic|
 
 	message.should be_a Hello
 	message.host_name.should == Facter.fqdn
-	message.program.should == 'data-processor'
+	message.program.should == 'dms-data-processor'
 	message.pid.should > 0
 end
 
