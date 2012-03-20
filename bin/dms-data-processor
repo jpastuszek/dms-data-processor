@@ -45,11 +45,7 @@ Program::Daemon.new('DMS Data Processor', VERSION) do
 			cast: Integer,
 			description: 'queue up to specified number of reply messages in memory if receiver is not reading them',
 			default: '100'
-		option :linger_time,
-			short: :L,
-			cast: Integer,
-			description: 'how many seconds to wait for outstanding messages to be sent before exiting',
-			default: 10
+		linger_time
 	end
 
 	validate do |settings|
