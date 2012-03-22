@@ -62,23 +62,15 @@ Given /console connector publish address is (.*)/ do |address|
 	@console_connector_pub_address = address
 end
 
-When /it is started for (.*) quer/ do |query_count|
-	@program_args << ['--query-count', query_count.to_i]
-	@program_args = @program_args.join(' ')
-
-	puts "#{@program} #{@program_args}"
-	@program_pid, @program_thread, @program_out_queue = spawn(@program, @program_args)
-end
-
 When /it is started$/ do
 	@program_args = @program_args.join(' ')
 
 	puts "#{@program} #{@program_args}"
-	@program_pid, @program_thread, @program_out_queue = spawn(@program, @program_args)
+	@program_process = RunProgram.new(@program, @program_args){|line| puts line}
 end
 
 When /I sent following RawDataPoints to (.*):/ do |address, raw_data_points|
-	Timeout.timeout(2) do
+	Timeout.timeout(4) do
 		ZeroMQ.new do |zmq|
 			zmq.push_connect(address) do |push|
 				 raw_data_points.hashes.each do |h|
@@ -227,7 +219,7 @@ Then /I should get (.*) Hello messages on (.*) topic/ do |count, topic|
 end
 
 Then /terminate the process/ do
-	terminate(@program_pid, @program_thread)
+	@program_process.terminate
 end
 
 Then /I should get following DataSets:/ do |data_sets|
@@ -250,13 +242,7 @@ Then /I should get NoResults response/ do
 end
 
 Then /log output should include following entries:/ do |log_entries|
-	@program_log = []
-	until @program_out_queue.empty?
-		l = @program_out_queue.pop
-		@program_log << l
-	end
-
-	@program_log = @program_log.join
+	@program_log = @program_process.output
 	log_entries.raw.flatten.each do |entry|
 		@program_log.should include(entry)
 	end

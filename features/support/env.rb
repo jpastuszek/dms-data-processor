@@ -29,62 +29,7 @@ require 'dms-data-processor'
 
 require 'rspec/expectations'
 require 'capture-output'
-require 'tmpdir'
 require 'timeout'
 require 'facter'
-
-def run(program, args = '')
-	out = []
-	out << Capture.stdout do
-		out << Capture.stderr do
-			pid = Process.spawn("bundle exec bin/#{program} #{args}")
-			Process.waitpid(pid)
-			out << $?
-		end
-	end
-
-	out.reverse
-end
-
-def spawn(program, args = '')
-	r, w = IO.pipe
-	pid = Process.spawn("bundle exec bin/#{program} #{args}", :out => w, :err => w)
-	w.close
-	out_queue = Queue.new
-
-	thread = Thread.new do
-		r.each_line do |line|
-			puts line
-			out_queue << line
-		end
-	end
-
-	at_exit do
-		terminate(pid, thread)
-	end
-
-	return pid, thread, out_queue
-end
-
-def terminate(pid, thread)
-	Process.kill('INT', pid)
-	(0..80).to_a.any? do
-		Process.waitpid(pid, Process::WNOHANG).tap{sleep 0.1}
-	end or Process.kill('KILL', pid)
-rescue Errno::ESRCH
-ensure
-	thread.join
-end
-
-def temp_dir(name)
-	dir = Pathname.new(Dir.mktmpdir(name))
-
-	at_exit do
-		dir.rmtree
-	end
-
-	dir
-end
-
-
+require 'dms-core/features'
 
