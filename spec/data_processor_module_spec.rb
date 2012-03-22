@@ -78,6 +78,7 @@ end
 
 describe DataProcessorModules do
 	before :all do
+		Logging.logger.root.level = :debug
 		@modules_dir = Pathname.new(Dir.mktmpdir('poller_moduled.d'))
 
 		(@modules_dir + 'system.rb').open('w') do |f|
