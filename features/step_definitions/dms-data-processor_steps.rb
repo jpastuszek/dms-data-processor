@@ -81,15 +81,24 @@ When /I sent following RawDataPoints to (.*):/ do |address, raw_data_points|
 	end
 end
 
-When /I send following DataSetQueries to (.*):/ do |address, data_set_queries|
-	@query_resoults = []
+When /I send following DataSetQueries to (.*) waiting for (.*) (.*):/ do |address, class_count, class_name, data_set_queries|
 	Timeout.timeout(2) do
 		ZeroMQ.new do |zmq|
 			zmq.req_connect(address) do |req|
 				data_set_queries.hashes.each do |h|
-					req.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]) do |response|
-						@query_resoults << response
-					end.receive!
+					loop do
+						responses = []
+						req.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]) do |response|
+							responses << response
+						end.receive!
+
+						if responses.select{|r| r.is_a? eval(class_name)}.length == class_count.to_i
+							@query_resoults = responses
+							break
+						end
+
+						sleep 0.2
+					end
 				end
 			end
 		end

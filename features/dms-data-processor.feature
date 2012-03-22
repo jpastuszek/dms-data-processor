@@ -61,7 +61,7 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| magi		| system/CPU usage/CPU/1	| user		|1			| 2		|
 			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
 			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
-		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
+		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query waiting for 2 DataSet:
 			| tag_expression	| time_from	| time_span	| granularity	|
 			| magi				| 1			| 1			| 1				|
 		Then I should get following DataSets:
@@ -74,6 +74,7 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| DMS Data Processor ready |
 			| DMS Data Processor done |
 
+	@selective
 	Scenario: Producing DataSets via REQ/REP query interface - selective result
 		Given using data processor modules directory system
 		And data bind address is ipc:///tmp/dms-data-processor-test-data
@@ -89,12 +90,16 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| magi		| system/CPU usage/CPU/1	| user		|1			| 2		|
 			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
 			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
-		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
+		And I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query waiting for 1 DataSet:
 			| tag_expression	| time_from	| time_span	| granularity	|
 			| CPU:0				| 1			| 1			| 1				|
 		Then I should get following DataSets:
 			| type_name | tag_set												| time_from | time_span	| components	| datum_count	|
 			| CPU usage	| location:magi, module:system, system:CPU usage:CPU:0	| 1			| 1			| user, system	| 1, 1			|
+		When I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query waiting for 1 NoResults:
+			| tag_expression	| time_from	| time_span	| granularity	|
+			| bogous			| 1			| 1			| 1				|
+		Then I should get NoResults response
 		And terminate the process
 
 	@no_results
@@ -113,10 +118,6 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| magi		| system/CPU usage/CPU/1	| user		|1			| 2		|
 			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
 			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
-		And when I send following DataSetQueries to ipc:///tmp/dms-data-processor-test-query:
-			| tag_expression	| time_from	| time_span	| granularity	|
-			| bogous			| 1			| 1			| 1				|
-		Then I should get NoResults response
 		And terminate the process
 
 	@discover
