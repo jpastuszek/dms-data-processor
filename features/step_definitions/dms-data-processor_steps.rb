@@ -31,42 +31,12 @@ Given /using data processor modules directory (.+)/ do |module_dir|
 	@program_args << ['--module-dir', @module_dirs[module_dir].to_s]
 end
 
-Given /(.+) program$/ do |program|
-	@program = program
-	@program_args = []
-end
-
-Given /debug enabled/ do
-	@program_args << ['--debug']
-end
-
-Given /use linger time of (.+)/ do |linger_time|
-	@program_args << ['--linger-time', linger_time.to_i]
-end
-
 Given /data bind address is (.*)/ do |address|
 	@program_args << ['--data-bind-address', address]
 end
 
 Given /query bind address is (.*)/ do |address|
 	@program_args << ['--query-bind-address', address]
-end
-
-Given /console connector subscribe address is (.*)/ do |address|
-	@program_args << ['--console-subscriber', address]
-	@console_connector_sub_address = address
-end
-
-Given /console connector publish address is (.*)/ do |address|
-	@program_args << ['--console-publisher', address]
-	@console_connector_pub_address = address
-end
-
-When /it is started$/ do
-	@program_args = @program_args.join(' ')
-
-	puts "#{@program} #{@program_args}"
-	@program_process = RunProgram.new(@program, @program_args)#{|line| puts line}
 end
 
 When /I sent following RawDataPoints to (.*):/ do |address, raw_data_points|
@@ -214,10 +184,6 @@ Then /I should get (.*) Hello messages on (.*) topic/ do |count, topic|
 	@hello_topics[topic].each{|message| message.should be_a Hello}
 end
 
-Then /terminate the process/ do
-	@program_process.terminate
-end
-
 Then /I should get following DataSets:/ do |data_sets|
 	@query_resoults.should have(data_sets.hashes.length).data_sets
 
@@ -235,12 +201,5 @@ end
 Then /I should get NoResults response/ do
 	@query_resoults.should have(1).response
 	@query_resoults.first.should be_a NoResults
-end
-
-Then /log output should include following entries:/ do |log_entries|
-	@program_log = @program_process.output
-	log_entries.raw.flatten.each do |entry|
-		@program_log.should include(entry)
-	end
 end
 
