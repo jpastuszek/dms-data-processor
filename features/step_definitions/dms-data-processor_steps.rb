@@ -66,7 +66,7 @@ When /it is started$/ do
 	@program_args = @program_args.join(' ')
 
 	puts "#{@program} #{@program_args}"
-	@program_process = RunProgram.new(@program, @program_args){|line| puts line}
+	@program_process = RunProgram.new(@program, @program_args)#{|line| puts line}
 end
 
 When /I sent following RawDataPoints to (.*):/ do |address, raw_data_points|
@@ -105,38 +105,25 @@ When /I send following DataSetQueries to (.*) waiting for (.*) (.*):/ do |addres
 	end
 end
 
-When /I publish following DataSetQueries on (.*) topic waiting for (.*) data sets/ do |topic, data_set_count, data_set_queries|
+When /I publish following DataSetQueries on (.*) topic waiting for (.*) (.*):/ do |topic, class_count, class_name, data_set_queries|
 	@query_resoults = []
 
 	Timeout.timeout 4 do
 		ZeroMQ.new do |zmq|
-			zmq.pub_bind(@console_connector_pub_address) do |pub|
-				zmq.sub_bind(@console_connector_sub_address) do |sub|
-					poller = ZeroMQ::Poller.new
-					got_hello = nil
+			zmq.bus_bind(@console_connector_pub_address, @console_connector_sub_address) do |bus|
+				bus.ready!('test', 2)
 
-					sub.on Hello, topic do |msg|
-						got_hello = true
-					end
+				bus.on eval(class_name), topic do |msg|
+					@query_resoults << msg
+				end
 
-					poller << sub
-					begin 
-						pub.send Discover.new, topic: topic
-						poller.poll(0.2)
-					end until got_hello 
+				data_set_queries.hashes.each do |h|
+					bus.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]), topic: topic
+				end
 
-					sub.on DataSet, topic do |msg|
-						@query_resoults << msg
-					end
-
-					data_set_queries.hashes.each do |h|
-						pub.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]), topic: topic
-					end
-
-					loop do
-						sub.receive!
-						break if @query_resoults.length == data_set_count.to_i
-					end
+				loop do
+					bus.receive!
+					break if @query_resoults.length == class_count.to_i
 				end
 			end
 		end

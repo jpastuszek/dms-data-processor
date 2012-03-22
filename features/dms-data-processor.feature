@@ -156,7 +156,7 @@ Feature: Storage and processing of RawDataPoints to DataSets
 			| magi		| system/CPU usage/CPU/1	| user		|1			| 2		|
 			| magi		| system/CPU usage/CPU/1	| system	|0			| 3		|
 			| magi		| system/CPU usage/CPU/1	| system	|1			| 4		|
-		And I publish following DataSetQueries on test321 topic waiting for 2 data sets:
+		And I publish following DataSetQueries on test321 topic waiting for 2 DataSet:
 			| tag_expression	| time_from	| time_span	| granularity	|
 			| magi				| 1			| 1			| 1				|
 		Then I should get following DataSets:
