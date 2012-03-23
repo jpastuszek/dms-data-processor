@@ -26,6 +26,9 @@ VERSION = (Pathname.new(__FILE__).dirname + '../VERSION').read
 Program::Tool.new('DMS Data Processor', VERSION) do
 	cli do
 		description "DMS data processor query tool"
+		switch :show_data_points,
+			short: :s,
+			description: 'print data received data points'
 		option :data_processor_address,
 			short: :p, 
 			description: 'Data processor ZeroMQ query interface adderss', 
@@ -56,6 +59,15 @@ Program::Tool.new('DMS Data Processor', VERSION) do
 
 				query.send dsq do |response|
 					log.info "received: #{response}"
+					if response.is_a? DataSet
+						if settings.show_data_points
+							response.component_data.each_pair do |component, data|
+								data.each do |time, value|
+									log.info "#{response.type_name}/#{component} - #{time}: #{value}"
+								end
+							end
+						end
+					end
 				end.receive!
 			end
 		end
