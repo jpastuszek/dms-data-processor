@@ -117,7 +117,7 @@ Program::Daemon.new('DMS Data Processor', VERSION) do
 								begin
 									poller.poll!
 								rescue => error
-									log.error error.message
+									log.error error
 								end
 							end
 						end
