@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Distributed Monitoring System.  If not, see <http://www.gnu.org/licenses/>.
 
+require 'rbtree'
+
 class MemoryStorage
 	class Node < Hash
 	end
@@ -22,32 +24,52 @@ class MemoryStorage
 	class Leaf < Node
 	end
 
-	class RingBuffer
-		include Enumerable
-
+	class LimitedStore < RBTree
 		def initialize(size)
-			@buffer = []
+			super()
 			@size = size
-			@next_pos = 0
-			@length = 0
+			readjust do |a, b|
+				# reverse key order
+				-(a <=> b)
+			end
 		end
 
-		def <<(o)
-			@buffer[@next_pos] = o
-			@next_pos += 1
-			@next_pos %= @size
-			@length += 1 if @length < @size
+		def []=(time_stamp, value)
+			super
+			if length > @size
+				pop
+			end
+		end
+
+		def range(time_from, time_span, &block)
+			bound(time_from, time_from - time_span, &block)
+		end
+	end
+
+	class RawDatumEnumerator
+		include Enumerable
+
+		def initialize(storage)
+			@storage = storage
 		end
 
 		def each
-			@length.times do |time|
-				yield @buffer[(@next_pos - 1 - time) % @size]
+			@storage.each do |time_stamp, value|
+				yield RawDatum[time_stamp, value]
 			end
 		end
 
 		def range(time_from, time_span)
-			select do |raw_datum|
-				raw_datum.time_stamp <= time_from and raw_datum.time_stamp.to_f >= (time_from.to_f - time_span.to_f)
+			if block_given?
+				@storage.range(time_from, time_span) do |time_stamp, value|
+					yield RawDatum[time_stamp, value]
+				end
+			else
+				data = []
+				@storage.range(time_from, time_span) do |time_stamp, value|
+					data << RawDatum[time_stamp, value]
+				end
+				return data
 			end
 		end
 	end
@@ -62,10 +84,10 @@ class MemoryStorage
 		components = (node[raw_data_key.location] ||= {})
 
 		if component = components[raw_data_key.component]
-			component << raw_datum
+			component[raw_datum.time_stamp] = raw_datum.value
 			return false
 		else
-			(components[raw_data_key.component] = RingBuffer.new(@size)) << raw_datum
+			(components[raw_data_key.component] = LimitedStore.new(@size))[raw_datum.time_stamp] = raw_datum.value
 			return true
 		end
 	end
@@ -82,7 +104,7 @@ class MemoryStorage
 		if root.is_a? Leaf
 			if location = root[raw_data_key.location]
 				if component = location[raw_data_key.component]
-					return component
+					return RawDatumEnumerator.new(component)
 				end
 			end
 		end

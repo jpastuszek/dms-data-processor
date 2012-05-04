@@ -150,6 +150,14 @@ class RawDatum
 	attr_reader :time_stamp
 	attr_reader :value
 
+	def <=>(a)
+		-(@time_stamp <=> a.time_stamp)
+	end
+
+	def ==(b)
+		time_stamp == time_stamp and value == value
+	end
+
 	def to_s
 		"RawDatum[#{@time_stamp}: #{@value}]"
 	end

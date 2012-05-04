@@ -25,46 +25,20 @@ describe MemoryStorage do
 
 	it_behaves_like 'storage'
 
-	it 'should not store more than specified number of objects under same key but keep the most recen objects' do
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 1)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 2)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 3)
-		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], 4)
+	it 'should return data enumerable in revers time stamp order but no more than storage size (3)' do
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], RawDatum[Time.at(3), 3])
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], RawDatum[Time.at(1), 1])
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], RawDatum[Time.at(4), 4])
+		subject.store(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'], RawDatum[Time.at(2), 2])
 
-		subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle']).to_a.should == [4, 3, 2]
-	end
+		d = subject.fetch(RawDataKey['magi', 'system/CPU usage/cpu/0', 'idle'])
 
-	describe MemoryStorage::RingBuffer do
-		subject do
-			MemoryStorage::RingBuffer.new(10)
-		end
-
-		it 'should iterate stored elements in reverse insertion order' do
-			3.times do |time|
-				subject << time
-			end
-
-			subject.first.should == 2
-			
-			subject.reduce([]) do |arr, elem|
-				arr << elem
-			end.should == [2, 1, 0]
-		end
-
-		it 'should keep last size number of elements' do
-			20.times do |time|
-				subject << time
-			end
-
-			subject.first.should == 19
-			
-			arr = subject.reduce([]) do |arr, elem|
-				arr << elem
-			end
-
-			arr.should have(10).numbers
-			arr.should == [19, 18, 17, 16, 15, 14, 13, 12, 11, 10]
-		end
+		d.should respond_to :each
+		d.to_a.should == [
+			RawDatum[Time.at(4), 4],
+			RawDatum[Time.at(3), 3],
+			RawDatum[Time.at(2), 2],
+		]
 	end
 end
 
