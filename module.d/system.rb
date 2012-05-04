@@ -63,7 +63,7 @@ data_processor('CPU usage') do
 			rd.each do |new|
 				if old
 					time_delta = (new.time_stamp - old.time_stamp).to_f
-					value_delta = (new.value - old.value).to_f / 1000
+					value_delta = (new.value - old.value).to_f / 100
 
 					collect raw_data_key.component, new.time_stamp - (time_delta / 2),  value_delta / time_delta
 				end
