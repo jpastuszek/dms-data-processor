@@ -26,17 +26,17 @@ Given /data processor module directory (.+) containing module (.+):/ do |module_
 	end
 end
 
-Given /using data processor modules directory (.+)/ do |module_dir|
+Given /([^ ]*) is using data processor modules directory (.+)/ do |program, module_dir|
 	raise "module dir #{module_dir} not defined!" unless @module_dirs.member? module_dir
-	@program_args << ['--module-dir', @module_dirs[module_dir].to_s]
+	step "#{program} argument --module-dir #{@module_dirs[module_dir].to_s}"
 end
 
-Given /data bind address is (.*)/ do |address|
-	@program_args << ['--data-bind-address', address]
+Given /([^ ]*) data bind address is (.*)/ do |program, address|
+	step "#{program} argument --data-bind-address #{address}"
 end
 
-Given /query bind address is (.*)/ do |address|
-	@program_args << ['--query-bind-address', address]
+Given /([^ ]*) query bind address is (.*)/ do |program, address|
+	step "#{program} argument --query-bind-address #{address}"
 end
 
 When /I sent following RawDataPoints to (.*):/ do |address, raw_data_points|
@@ -115,7 +115,7 @@ end
 
 When /I should eventually get Hello response on (.*) topic/ do |topic|
 	message = nil
-	Timeout.timeout 4 do
+	Timeout.timeout 8 do
 		ZeroMQ.new do |zmq|
 			zmq.sub_bind(@console_connector_sub_address) do |sub|
 				sub.on Hello, topic do |msg|
@@ -135,7 +135,7 @@ When /I should eventually get Hello response on (.*) topic/ do |topic|
 end
 
 When /I publish Discover messages as follows:/ do |discovers|
-	Timeout.timeout 4 do
+	Timeout.timeout 8 do
 		ZeroMQ.new do |zmq|
 			zmq.pub_bind(@console_connector_pub_address) do |pub|
 				zmq.sub_bind(@console_connector_sub_address) do |sub|
@@ -201,5 +201,9 @@ end
 Then /I should get NoResults response/ do
 	@query_resoults.should have(1).response
 	@query_resoults.first.should be_a NoResults
+end
+
+Then /([^ ]*) log should include following entries:/ do |program, entries|
+	step "#{program} output should include following entries:", entries
 end
 
