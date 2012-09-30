@@ -22,7 +22,7 @@ data_processor('Disk usage') do
 		by raw_data_key.location
 		by raw_data_key.path.sub 'disk/usage/', ''
 	end.need do
-		key 'disk/usage[total]'
+		#key 'disk/usage[total]'
 		key 'disk/usage[free]'
 		key 'disk/usage[used]'
 	end.each_group do |group, raw_data_keys|

@@ -60,7 +60,8 @@ When /I send following DataSetQueries to (.*) waiting for (.*) (.*):/ do |addres
 						responses = []
 						req.send DataSetQuery.new(h[:tag_expression], h[:time_from].to_i, h[:time_span].to_f, h[:granularity]) do |response|
 							responses << response
-						end.receive!
+						end
+						req.receive!
 
 						if responses.select{|r| r.is_a? eval(class_name)}.length == class_count.to_i
 							@query_resoults = responses
@@ -120,7 +121,8 @@ When /I should eventually get Hello response on (.*) topic/ do |topic|
 			zmq.sub_bind(@console_connector_sub_address) do |sub|
 				sub.on Hello, topic do |msg|
 					message = msg
-				end.receive!
+				end
+				sub.receive!
 			end
 		end
 	end
