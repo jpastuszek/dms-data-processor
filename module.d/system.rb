@@ -73,3 +73,23 @@ data_processor('CPU usage') do
 	end
 end
 
+data_processor('Load Average') do
+	classifier('load').select do
+		key 'system/load'
+	end.group do |raw_data_key|
+		by raw_data_key.location
+		by raw_data_key.component
+	end.need do
+		key 'system/load'
+	end.each_group do |group, raw_data_keys|
+		tag "location:#{group.first}"
+		tag "system:load:#{group.last}"
+	end.process_with do |time_from, time_span, data_sources|
+		data_sources.each do |raw_data_key, raw_data|
+			raw_data.range(time_from, time_span).each do |data|
+				collect raw_data_key.component, data.time_stamp, data.value
+			end
+		end
+	end
+end
+
