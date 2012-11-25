@@ -4,9 +4,10 @@ gem "cli", "~> 1.1.1"
 gem "facter", "~> 1.6.5"
 gem "rbtree", "~> 0.3"
 
-#gem "dms-core", :git => "git@github.com:jpastuszek/dms-core.git"
+# core dependencies
 gem "dms-core", :path => "../dms-core"
 gem "rubytree", "~> 0.8.3"
+gem "periodic-scheduler", "~> 0.7"
 
 # Add dependencies to develop your gem here.
 # Include everything needed to run rake, tests, features, etc.
